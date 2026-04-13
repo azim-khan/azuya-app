@@ -70,3 +70,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+.rounded-sm,
+.rounded-md,
+.rounded-lg {
+  overflow: hidden;
+}

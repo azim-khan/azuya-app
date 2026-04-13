@@ -59,7 +59,7 @@ export default function SalesPage() {
             const params = new URLSearchParams();
             if (startDate) params.append('startDate', startDate);
             if (endDate) params.append('endDate', endDate);
-            
+
             const queryString = params.toString();
             const res = await api.get(`/sales${queryString ? `?${queryString}` : ''}`);
             setSales(res.data || []);
@@ -170,11 +170,11 @@ export default function SalesPage() {
     );
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
+        <div className="space-y-6 flex-1 flex flex-col">
+            <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900">Sales Transactions</h2>
-                    <p className="text-slate-500 text-sm">Manage your sales orders, invoices and payments.</p>
+                    <h2 className="text-2xl font-bold tracking-tight">Sales Transactions</h2>
+                    <p className="text-muted-foreground">Manage your sales orders, invoices and payments.</p>
                 </div>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
@@ -183,20 +183,20 @@ export default function SalesPage() {
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[98vw] w-full h-[95vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
-                         <DialogTitle className="sr-only">New Sale POS</DialogTitle>
-                         <DialogDescription className="sr-only">Create a new sale transaction with multi-product selection and real-time inventory tracking.</DialogDescription>
-                         <div className="bg-white rounded-xl shadow-2xl border overflow-hidden h-full flex flex-col">
-                            <SaleForm 
-                                onSuccess={handleSaleSuccess} 
-                                onCancel={() => setIsDialogOpen(false)} 
+                        <DialogTitle className="sr-only">New Sale POS</DialogTitle>
+                        <DialogDescription className="sr-only">Create a new sale transaction with multi-product selection and real-time inventory tracking.</DialogDescription>
+                        <div className="bg-white rounded-xl shadow-2xl border overflow-hidden h-full flex flex-col">
+                            <SaleForm
+                                onSuccess={handleSaleSuccess}
+                                onCancel={() => setIsDialogOpen(false)}
                             />
-                         </div>
+                        </div>
                     </DialogContent>
                 </Dialog>
             </div>
 
             <div className="flex flex-col md:flex-row items-end gap-4 bg-white p-4 rounded-lg border shadow-sm">
-                <div className="relative flex-1 w-full">
+                <div className="relative w-1/2">
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Search</label>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -208,7 +208,7 @@ export default function SalesPage() {
                         />
                     </div>
                 </div>
-                
+
                 <div className="w-full md:w-auto">
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">From Date</label>
                     <Input
@@ -218,7 +218,7 @@ export default function SalesPage() {
                         onChange={(e) => setStartDate(e.target.value)}
                     />
                 </div>
-                
+
                 <div className="w-full md:w-auto">
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">To Date</label>
                     <Input
@@ -229,8 +229,8 @@ export default function SalesPage() {
                     />
                 </div>
 
-                <Button 
-                    variant="ghost" 
+                <Button
+                    variant="ghost"
                     className="text-slate-500 hover:text-slate-900 h-10 px-3"
                     onClick={() => {
                         setStartDate('');
@@ -242,7 +242,7 @@ export default function SalesPage() {
                 </Button>
             </div>
 
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden">
                 <DataTable columns={columns} data={filteredSales} loading={loading} />
             </div>
 

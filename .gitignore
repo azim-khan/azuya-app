@@ -1,0 +1,61 @@
+# === General ===
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.user
+*.log
+Thumbs.db
+
+# === Node.js / Next.js (Frontend) ===
+**/node_modules/
+**/dist/
+**/.next/
+**/out/
+**/coverage/
+.pnp
+.pnp.js
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.tsbuildinfo
+
+# === .NET / Visual Studio (Backend) ===
+**/bin/
+**/obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+.vs/
+*.dbmdl
+*.bak
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+Generated_Code/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.dotCover
+
+# === Environment / Secrets ===
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+secrets.json
+
+# === Databases / Entity Framework ===
+# DO NOT ignore Migrations - they are part of the source code!
+/AccountingInventory.API/AccountingInventory.db
+*.mdf
+*.ldf
+
+# === Azure / Cloud ===
+.publish/
+ScaffoldingReadMe.txt

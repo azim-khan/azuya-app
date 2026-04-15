@@ -169,6 +169,83 @@ namespace AccountingInventory.API.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateSale(int id, CreateSaleDto dto)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var sale = await _context.Sales
+                    .Include(s => s.SaleDetails)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+                if (sale == null) return NotFound();
+
+                // 1. Restore stock from previous sale items
+                foreach (var detail in sale.SaleDetails)
+                {
+                    var product = await _context.Products.FindAsync(detail.ProductId);
+                    if (product != null)
+                    {
+                        product.StockQuantity += detail.Quantity;
+                    }
+                }
+
+                // 2. Clear old lines
+                _context.SaleDetails.RemoveRange(sale.SaleDetails);
+
+                // 3. Update main properties
+                sale.InvoiceNo = dto.InvoiceNo;
+                sale.Date = dto.Date;
+                sale.CustomerId = dto.CustomerId;
+                sale.Discount = dto.Discount;
+                sale.PaidAmount = dto.PaidAmount;
+                sale.SubTotal = 0;
+
+                // 4. Add new lines and Deduct stock
+                foreach (var item in dto.Items)
+                {
+                    var product = await _context.Products.FindAsync(item.ProductId);
+                    if (product == null) throw new Exception($"Product {item.ProductId} not found");
+
+                    if (product.StockQuantity < item.Quantity)
+                    {
+                        throw new Exception($"Insufficient stock for {product.Name}. Available: {product.StockQuantity}");
+                    }
+
+                    product.StockQuantity -= item.Quantity;
+
+                    var totalLine = item.Quantity * item.UnitPrice;
+                    sale.SubTotal += totalLine;
+
+                    sale.SaleDetails.Add(new SaleDetail
+                    {
+                        ProductId = item.ProductId,
+                        Quantity = item.Quantity,
+                        UnitPrice = item.UnitPrice,
+                        Total = totalLine
+                    });
+                }
+
+                sale.TotalAmount = sale.SubTotal - sale.Discount;
+                sale.DueAmount = sale.TotalAmount - sale.PaidAmount;
+
+                if (sale.DueAmount <= 0) sale.PaymentStatus = "Paid";
+                else if (sale.PaidAmount > 0) sale.PaymentStatus = "Partial";
+                else sale.PaymentStatus = "Due";
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { id = sale.Id });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSale(int id)
         {

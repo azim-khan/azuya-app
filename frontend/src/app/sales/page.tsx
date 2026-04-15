@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import api from '@/services/api';
-import { Plus, Search, FileText, Trash2, Printer, Eye } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Printer, Eye, Pencil } from 'lucide-react';
+import SaleDetailsDialog from '@/components/sales/SaleDetailsDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
@@ -50,7 +51,10 @@ export default function SalesPage() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [saleToDelete, setSaleToDelete] = useState<number | null>(null);
+    const [viewingSaleId, setViewingSaleId] = useState<number | null>(null);
+    const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
     const { toast } = useToast();
 
     const fetchSales = async () => {
@@ -144,11 +148,29 @@ export default function SalesPage() {
             id: 'actions',
             cell: ({ row }) => (
                 <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="icon" className="hover:bg-slate-100 text-slate-600" title="View Details">
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="hover:bg-slate-100 text-slate-600" 
+                        title="View Details"
+                        onClick={() => {
+                            setViewingSaleId(row.original.id);
+                            setIsViewDialogOpen(true);
+                        }}
+                    >
                         <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="text-slate-900 hover:bg-slate-100" title="Print Invoice">
-                        <Printer className="h-4 w-4" />
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-slate-900 hover:bg-slate-100" 
+                        title="Edit Sale"
+                        onClick={() => {
+                            setEditingSaleId(row.original.id);
+                            setIsDialogOpen(true);
+                        }}
+                    >
+                        <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="ghost"
@@ -176,24 +198,40 @@ export default function SalesPage() {
                     <h2 className="text-2xl font-bold tracking-tight">Sales Transactions</h2>
                     <p className="text-muted-foreground">Manage your sales orders, invoices and payments.</p>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                    setIsDialogOpen(open);
+                    if (!open) setEditingSaleId(null);
+                }}>
                     <DialogTrigger asChild>
-                        <Button className="bg-slate-900 hover:bg-black shadow-md text-white border-none">
+                        <Button className="bg-slate-900 hover:bg-black shadow-md text-white border-none" onClick={() => setEditingSaleId(null)}>
                             <Plus className="mr-2 h-4 w-4" /> New Sale
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[98vw] w-full h-[95vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
-                        <DialogTitle className="sr-only">New Sale POS</DialogTitle>
-                        <DialogDescription className="sr-only">Create a new sale transaction with multi-product selection and real-time inventory tracking.</DialogDescription>
-                        <div className="bg-white rounded-xl shadow-2xl border overflow-hidden h-full flex flex-col">
-                            <SaleForm
-                                onSuccess={handleSaleSuccess}
-                                onCancel={() => setIsDialogOpen(false)}
+                         <DialogTitle className="sr-only">{editingSaleId ? 'Edit Sale' : 'New Sale'}</DialogTitle>
+                         <DialogDescription className="sr-only">Create or edit a sale transaction.</DialogDescription>
+                         <div className="bg-white rounded-xl shadow-2xl border overflow-hidden h-full flex flex-col">
+                            <SaleForm 
+                                saleId={editingSaleId}
+                                onSuccess={handleSaleSuccess} 
+                                onCancel={() => setIsDialogOpen(false)} 
                             />
-                        </div>
+                         </div>
                     </DialogContent>
                 </Dialog>
             </div>
+
+            {/* View Details Dialog */}
+            <SaleDetailsDialog 
+                saleId={viewingSaleId}
+                open={isViewDialogOpen}
+                onOpenChange={setIsViewDialogOpen}
+                onPrint={() => {
+                    // We can reuse the print window logic or just close and click print
+                    setIsViewDialogOpen(false);
+                    // Add logic here if needed
+                }}
+            />
 
             <div className="flex flex-col md:flex-row items-end gap-4 bg-white p-4 rounded-lg border shadow-sm">
                 <div className="relative w-1/2">

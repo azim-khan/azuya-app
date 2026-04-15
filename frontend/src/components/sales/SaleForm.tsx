@@ -36,11 +36,12 @@ interface SaleItem {
 }
 
 interface SaleFormProps {
+    saleId?: number | null;
     onSuccess?: () => void;
     onCancel?: () => void;
 }
 
-export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
+export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps) {
     const { toast } = useToast();
 
     // Data states
@@ -54,7 +55,7 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
     const [customerId, setCustomerId] = useState<string>('');
     const [items, setItems] = useState<SaleItem[]>([]);
-    const [discount, setDiscount] = useState(0);
+    const [discount, setDiscount] = useState<string | number>('');
     const [paidAmount, setPaidAmount] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -65,25 +66,50 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     useEffect(() => {
         const loadInitialData = async () => {
             try {
+                // Load base data
                 const [prodRes, custRes, invoiceRes] = await Promise.all([
                     api.get('/products'),
                     api.get('/customers'),
                     api.get('/sales/next-invoice-number')
                 ]);
-
+                
                 const productList = prodRes.data?.data || prodRes.data || [];
                 const customerList = custRes.data || [];
-
+                
                 setProducts(productList);
                 setCustomers(customerList);
-                setInvoiceNo(invoiceRes.data?.invoiceNo || '');
+
+                // If editing, load the specific sale
+                if (saleId) {
+                    const saleRes = await api.get(`/sales/${saleId}`);
+                    const s = saleRes.data;
+                    
+                    setInvoiceNo(s.invoiceNo);
+                    setDate(format(new Date(s.date), "yyyy-MM-dd'T'HH:mm"));
+                    setCustomerId(s.customerId?.toString() || '');
+                    setDiscount(s.discount);
+                    setPaidAmount(s.paidAmount);
+                    
+                    setItems(s.items.map((item: any) => ({
+                        productId: item.productId,
+                        productName: item.productName,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        total: item.total,
+                        // For edit mode, we need to know the 'actual' stock available if we were to cancel these items
+                        // We'll approximate this by adding the current quantity to the current product stock
+                        stockLeft: (productList.find((p: any) => p.id === item.productId)?.stockQuantity || 0) + item.quantity
+                    })));
+                } else {
+                    setInvoiceNo(invoiceRes.data?.invoiceNo || '');
+                }
             } catch (error) {
                 console.error('Data load failed:', error);
                 toast({ title: 'Error', description: 'Failed to initialize sales form.', variant: 'destructive' });
             }
         };
         loadInitialData();
-    }, [toast]);
+    }, [toast, saleId]);
 
     const addItem = (productId: string) => {
         const product = products.find(p => p.id === parseInt(productId));
@@ -129,8 +155,12 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     };
 
     const subTotal = useMemo(() => items.reduce((sum, i) => sum + i.total, 0), [items]);
-    const totalAmount = subTotal - discount;
+    const totalAmount = subTotal - (parseFloat(discount.toString()) || 0);
     const dueAmount = totalAmount - paidAmount;
+
+    useEffect(() => {
+        setPaidAmount(totalAmount);
+    }, [totalAmount]);
 
     const filteredProducts = useMemo(() => {
         if (!productSearch) return [];
@@ -151,7 +181,7 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                 invoiceNo,
                 date,
                 customerId: customerId ? parseInt(customerId) : null,
-                discount,
+                discount: parseFloat(discount.toString()) || 0,
                 paidAmount,
                 items: items.map(i => ({
                     productId: i.productId,
@@ -160,17 +190,25 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                 }))
             };
 
-            const res = await api.post('/sales', saleData);
+            const res = saleId 
+                ? await api.put(`/sales/${saleId}`, saleData)
+                : await api.post('/sales', saleData);
+            
             const returnedId = res.data?.id || res.data; // Handle both {id: x} and direct ID
-
+            
             if (!returnedId) throw new Error("Server did not return a Sale ID");
-
+            
             setLastSaleId(returnedId);
-            toast({ title: 'Success', description: 'Sale saved successfully!' });
+            toast({ title: 'Success', description: `Sale ${saleId ? 'updated' : 'saved'} successfully!` });
 
             if (print) {
                 setShowInvoice(true);
-                setTimeout(() => window.print(), 500);
+                // Give a small delay for the invoice component to render completely
+                setTimeout(async () => {
+                    window.print();
+                    // Automatically trigger success (close and refresh list) after print dialog is closed
+                    onSuccess?.();
+                }, 800);
             } else {
                 onSuccess?.();
             }
@@ -190,9 +228,6 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     if (showInvoice && lastSaleId) {
         return (
             <div className="space-y-6 max-h-[80vh] overflow-y-auto p-4">
-                <Button onClick={() => onSuccess?.()} variant="outline" className="print:hidden">
-                    Done
-                </Button>
                 <InvoicePrinter saleId={lastSaleId} />
             </div>
         );
@@ -211,10 +246,10 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                         Cancel
                     </Button>
                     <Button variant="outline" disabled={isSaving} onClick={() => handleSave(false)} className="border-slate-900 text-slate-900 hover:bg-slate-50 font-bold">
-                        <Save className="mr-2 h-4 w-4" /> Save Only
+                        <Save className="mr-2 h-4 w-4" /> {saleId ? 'Update Sale' : 'Save Only'}
                     </Button>
-                    <Button className="bg-slate-900 hover:bg-black shadow-lg px-6 text-white" disabled={isSaving} onClick={() => handleSave(true)}>
-                        <Printer className="mr-2 h-4 w-4" /> Save & Print
+                    <Button disabled={isSaving} onClick={() => handleSave(true)} className="bg-slate-900 hover:bg-black text-white font-bold">
+                        <Printer className="mr-2 h-4 w-4" /> {saleId ? 'Update & Print' : 'Save & Print'}
                     </Button>
                 </div>
             </div>

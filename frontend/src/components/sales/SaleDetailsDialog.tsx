@@ -2,34 +2,44 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/services/api';
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogHeader, 
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
     DialogTitle,
     DialogDescription
 } from '@/components/ui/dialog';
 import { format } from 'date-fns';
-import { Loader2, Mail, Phone, MapPin, Printer } from 'lucide-react';
+import { Loader2, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import InvoicePrinter from '@/components/sales/InvoicePrinter';
 
 interface SaleDetailsProps {
     saleId: number | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onPrint?: () => void;
 }
 
-export default function SaleDetailsDialog({ saleId, open, onOpenChange, onPrint }: SaleDetailsProps) {
+export default function SaleDetailsDialog({ saleId, open, onOpenChange }: SaleDetailsProps) {
     const [sale, setSale] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [showInvoice, setShowInvoice] = useState(false);
 
     useEffect(() => {
         if (open && saleId) {
             fetchSaleDetails();
+            setShowInvoice(false);
         }
     }, [open, saleId]);
+
+    const handlePrint = () => {
+        setShowInvoice(true);
+        setTimeout(() => {
+            window.print();
+            setShowInvoice(false);
+        }, 500);
+    };
 
     const fetchSaleDetails = async () => {
         try {
@@ -45,17 +55,25 @@ export default function SaleDetailsDialog({ saleId, open, onOpenChange, onPrint 
 
     if (!saleId) return null;
 
+    if (showInvoice && saleId) {
+        return (
+            <div className="space-y-6 max-h-[80vh] overflow-y-auto p-4 print:max-h-none print:overflow-visible">
+                <InvoicePrinter saleId={saleId} />
+            </div>
+        );
+    }
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader className="border-b pb-4 mb-4">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto print:max-h-none print:overflow-visible">
+                <DialogHeader className="border-b pb-4 mb-4 pr-12">
                     <div className="flex justify-between items-start">
                         <div>
                             <DialogTitle className="text-2xl font-black text-slate-900">SALE DETAILS</DialogTitle>
                             <DialogDescription className="text-slate-500 font-mono">Invoice #{sale?.invoiceNo || '...'}</DialogDescription>
                         </div>
                         <div className="flex gap-2">
-                             <Button variant="outline" size="sm" onClick={onPrint} className="border-slate-300">
+                            <Button variant="outline" size="sm" onClick={handlePrint} className="border-slate-300">
                                 <Printer className="h-4 w-4 mr-2" /> Print
                             </Button>
                         </div>
@@ -76,7 +94,7 @@ export default function SaleDetailsDialog({ saleId, open, onOpenChange, onPrint 
                             </div>
                             <div className="text-right space-y-1">
                                 <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Transaction Date</p>
-                                <p className="text-slate-900 font-medium">{format(new Date(sale.date), 'dd MMM yyyy p')}</p>
+                                <p className="text-slate-900 font-medium">{format(new Date(sale.date), 'dd/MM/yyyy p')}</p>
                                 <Badge variant={sale.paymentStatus === 'Paid' ? 'success' : 'warning'}>
                                     {sale.paymentStatus}
                                 </Badge>

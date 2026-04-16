@@ -107,7 +107,7 @@ export default function SalesPage() {
         {
             accessorKey: 'date',
             header: 'Date',
-            cell: ({ row }) => format(new Date(row.getValue('date')), 'dd MMM yyyy p'),
+            cell: ({ row }) => format(new Date(row.getValue('date')), 'dd/MM/yyyy p'),
         },
         {
             accessorKey: 'customerName',
@@ -148,10 +148,10 @@ export default function SalesPage() {
             id: 'actions',
             cell: ({ row }) => (
                 <div className="flex gap-2 justify-end">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="hover:bg-slate-100 text-slate-600" 
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-slate-100 text-slate-600"
                         title="View Details"
                         onClick={() => {
                             setViewingSaleId(row.original.id);
@@ -160,10 +160,10 @@ export default function SalesPage() {
                     >
                         <Eye className="h-4 w-4" />
                     </Button>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-slate-900 hover:bg-slate-100" 
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-slate-900 hover:bg-slate-100"
                         title="Edit Sale"
                         onClick={() => {
                             setEditingSaleId(row.original.id);
@@ -208,21 +208,21 @@ export default function SalesPage() {
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[98vw] w-full h-[95vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
-                         <DialogTitle className="sr-only">{editingSaleId ? 'Edit Sale' : 'New Sale'}</DialogTitle>
-                         <DialogDescription className="sr-only">Create or edit a sale transaction.</DialogDescription>
-                         <div className="bg-white rounded-xl shadow-2xl border overflow-hidden h-full flex flex-col">
-                            <SaleForm 
+                        <DialogTitle className="sr-only">{editingSaleId ? 'Edit Sale' : 'New Sale'}</DialogTitle>
+                        <DialogDescription className="sr-only">Create or edit a sale transaction.</DialogDescription>
+                        <div className="bg-white rounded-xl shadow-2xl border overflow-hidden h-full flex flex-col">
+                            <SaleForm
                                 saleId={editingSaleId}
-                                onSuccess={handleSaleSuccess} 
-                                onCancel={() => setIsDialogOpen(false)} 
+                                onSuccess={handleSaleSuccess}
+                                onCancel={() => setIsDialogOpen(false)}
                             />
-                         </div>
+                        </div>
                     </DialogContent>
                 </Dialog>
             </div>
 
             {/* View Details Dialog */}
-            <SaleDetailsDialog 
+            <SaleDetailsDialog
                 saleId={viewingSaleId}
                 open={isViewDialogOpen}
                 onOpenChange={setIsViewDialogOpen}

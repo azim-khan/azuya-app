@@ -72,10 +72,10 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                     api.get('/customers'),
                     api.get('/sales/next-invoice-number')
                 ]);
-                
+
                 const productList = prodRes.data?.data || prodRes.data || [];
                 const customerList = custRes.data || [];
-                
+
                 setProducts(productList);
                 setCustomers(customerList);
 
@@ -83,13 +83,13 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                 if (saleId) {
                     const saleRes = await api.get(`/sales/${saleId}`);
                     const s = saleRes.data;
-                    
+
                     setInvoiceNo(s.invoiceNo);
                     setDate(format(new Date(s.date), "yyyy-MM-dd'T'HH:mm"));
                     setCustomerId(s.customerId?.toString() || '');
                     setDiscount(s.discount);
                     setPaidAmount(s.paidAmount);
-                    
+
                     setItems(s.items.map((item: any) => ({
                         productId: item.productId,
                         productName: item.productName,
@@ -190,14 +190,14 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                 }))
             };
 
-            const res = saleId 
+            const res = saleId
                 ? await api.put(`/sales/${saleId}`, saleData)
                 : await api.post('/sales', saleData);
-            
+
             const returnedId = res.data?.id || res.data; // Handle both {id: x} and direct ID
-            
+
             if (!returnedId) throw new Error("Server did not return a Sale ID");
-            
+
             setLastSaleId(returnedId);
             toast({ title: 'Success', description: `Sale ${saleId ? 'updated' : 'saved'} successfully!` });
 
@@ -227,7 +227,7 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
 
     if (showInvoice && lastSaleId) {
         return (
-            <div className="space-y-6 max-h-[80vh] overflow-y-auto p-4">
+            <div className="space-y-6 max-h-[80vh] overflow-y-auto p-4 print:max-h-none print:overflow-visible">
                 <InvoicePrinter saleId={lastSaleId} />
             </div>
         );
@@ -239,7 +239,7 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
             <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg border mb-4 sticky top-0 z-30 shrink-0">
                 <div className="flex flex-col">
                     <h2 className="text-xl font-bold text-slate-900 leading-tight">Create New Sale</h2>
-                    <p className="text-xs text-slate-500 font-medium">Invoice: <span className="text-slate-900 font-bold">{invoiceNo}</span> | {format(new Date(date), 'dd MMM yyyy')}</p>
+                    <p className="text-xs text-slate-500 font-medium">Invoice: <span className="text-slate-900 font-bold">{invoiceNo}</span> | {format(new Date(date), 'dd/MM/yyyy p')}</p>
                 </div>
                 <div className="flex gap-3">
                     <Button variant="outline" onClick={onCancel} disabled={isSaving} className="border-slate-300">

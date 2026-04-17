@@ -49,7 +49,7 @@ export default function PurchaseDetailsDialog({ purchaseId, open, onOpenChange }
                 <DialogHeader className="border-b pb-4 mb-4">
                     <div>
                         <DialogTitle className="text-2xl font-black text-slate-900 uppercase">Purchase Details</DialogTitle>
-                        <DialogDescription className="text-slate-500">Record ID: {purchaseId}</DialogDescription>
+                        <DialogDescription className="text-slate-500">Document No: <span className="text-slate-900 font-black uppercase">{purchase?.purchaseNo || 'N/A'}</span></DialogDescription>
                     </div>
                 </DialogHeader>
 
@@ -60,14 +60,22 @@ export default function PurchaseDetailsDialog({ purchaseId, open, onOpenChange }
                 ) : purchase ? (
                     <div className="space-y-6">
                         {/* Supplier & Info Grid */}
-                        <div className="grid grid-cols-2 gap-8 bg-slate-50 p-6 rounded-xl border border-slate-100">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-100">
                             <div className="space-y-1">
                                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Supplier</p>
-                                <p className="text-lg font-bold text-slate-900">{purchase.supplierName}</p>
+                                <p className="text-base font-bold text-slate-900">{purchase.supplierName}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Purchase Date</p>
+                                <p className="text-slate-900 font-medium">{format(new Date(purchase.date), 'dd/MM/yyyy')}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Payment Status</p>
+                                <p className={`font-black uppercase text-xs ${purchase.paymentStatus === 'Paid' ? 'text-emerald-600' : 'text-rose-600'}`}>{purchase.paymentStatus}</p>
                             </div>
                             <div className="text-right space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Purchase Date</p>
-                                <p className="text-slate-900 font-medium">{format(new Date(purchase.date), 'dd/MM/yyyy p')}</p>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reference ID</p>
+                                <p className="text-slate-400 font-mono text-xs">#{purchase.id}</p>
                             </div>
                         </div>
 
@@ -93,9 +101,17 @@ export default function PurchaseDetailsDialog({ purchaseId, open, onOpenChange }
                                     ))}
                                 </tbody>
                                 <tfoot className="bg-slate-50 border-t-2 border-slate-900">
-                                    <tr>
-                                        <td colSpan={3} className="px-6 py-4 text-right font-black text-slate-500 uppercase text-[10px] tracking-wider">Grand Total</td>
-                                        <td className="px-6 py-4 text-right font-black text-xl text-slate-900">৳{purchase.totalAmount.toLocaleString()}</td>
+                                    <tr className="border-b border-slate-200">
+                                        <td colSpan={3} className="px-6 py-3 text-right font-bold text-slate-500 uppercase text-[10px] tracking-wider">Sub Total</td>
+                                        <td className="px-6 py-3 text-right font-bold text-slate-900">৳{purchase.totalAmount.toLocaleString()}</td>
+                                    </tr>
+                                    <tr className="border-b border-slate-200">
+                                        <td colSpan={3} className="px-6 py-3 text-right font-bold text-slate-500 uppercase text-[10px] tracking-wider">Paid Amount</td>
+                                        <td className="px-6 py-3 text-right font-bold text-emerald-600">৳{purchase.paidAmount.toLocaleString()}</td>
+                                    </tr>
+                                    <tr className="bg-slate-900 text-white">
+                                        <td colSpan={3} className="px-6 py-4 text-right font-black uppercase text-[10px] tracking-[0.2em]">Balance Due</td>
+                                        <td className="px-6 py-4 text-right font-black text-xl text-emerald-400">৳{purchase.dueAmount.toLocaleString()}</td>
                                     </tr>
                                 </tfoot>
                             </table>

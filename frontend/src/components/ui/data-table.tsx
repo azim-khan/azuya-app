@@ -33,6 +33,7 @@ interface DataTableProps<TData, TValue> {
     manualPagination?: boolean
     manualSorting?: boolean
     loading?: boolean
+    totalCount?: number
 }
 
 export function DataTable<TData, TValue>({
@@ -46,6 +47,7 @@ export function DataTable<TData, TValue>({
     manualPagination = false,
     manualSorting = false,
     loading = false,
+    totalCount,
 }: DataTableProps<TData, TValue>) {
     const table = useReactTable({
         data,
@@ -68,6 +70,13 @@ export function DataTable<TData, TValue>({
             },
         },
     })
+
+    const currentPageIndex = pagination?.pageIndex ?? table.getState().pagination.pageIndex
+    const currentPageSize = pagination?.pageSize ?? table.getState().pagination.pageSize
+    const actualTotalCount = totalCount ?? (manualPagination ? (pageCount * currentPageSize) : table.getFilteredRowModel().rows.length)
+    
+    const from = actualTotalCount === 0 ? 0 : (currentPageIndex * currentPageSize) + 1
+    const to = Math.min((currentPageIndex + 1) * currentPageSize, actualTotalCount)
 
     return (
         <div className="flex-1 flex flex-col min-h-0">
@@ -144,16 +153,9 @@ export function DataTable<TData, TValue>({
                 </Table>
             </div>
             <div className="flex items-center justify-end space-x-2 py-4">
-                {manualPagination ? (
-                    <div className="flex-1 text-sm text-muted-foreground pl-2">
-                        Showing {(pagination?.pageIndex ?? 0) * (pagination?.pageSize ?? 0) + 1} to{" "}
-                        {Math.min(
-                            ((pagination?.pageIndex ?? 0) + 1) * (pagination?.pageSize ?? 0),
-                            pageCount * (pagination?.pageSize ?? 0) // rough estimate, exact count is better if passed from outside
-                        )}{" "}
-                        results
-                    </div>
-                ) : null}
+                <div className="flex-1 text-sm text-muted-foreground pl-2 font-medium">
+                    Showing <span className="text-foreground">{from}</span> to <span className="text-foreground">{to}</span> of <span className="text-foreground">{actualTotalCount}</span> results
+                </div>
                 <Button
                     variant="outline"
                     size="sm"

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/services/api';
 import { Plus, Search, Trash2, Eye, Pencil } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import PurchaseDetailsDialog from '@/components/purchases/PurchaseDetailsDialog';
 import PurchaseForm from '@/components/purchases/PurchaseForm';
 import { Button } from '@/components/ui/button';
@@ -11,10 +12,11 @@ import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
     DialogDescription,
     DialogTrigger,
@@ -32,10 +34,14 @@ import {
 
 interface Purchase {
     id: number;
+    purchaseNo: string;
     date: string;
     supplierId: number;
     supplierName: string;
     totalAmount: number;
+    paidAmount: number;
+    dueAmount: number;
+    paymentStatus: string;
     items: any[];
 }
 
@@ -45,6 +51,7 @@ export default function PurchasesPage() {
     const [search, setSearch] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [status, setStatus] = useState('All');
     const [purchaseToDelete, setPurchaseToDelete] = useState<number | null>(null);
     const [viewingPurchaseId, setViewingPurchaseId] = useState<number | null>(null);
     const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
@@ -58,6 +65,8 @@ export default function PurchasesPage() {
             const params = new URLSearchParams();
             if (startDate) params.append('startDate', startDate);
             if (endDate) params.append('endDate', endDate);
+            if (search) params.append('search', search);
+            if (status !== 'All') params.append('status', status);
 
             const queryString = params.toString();
             const res = await api.get(`/purchases${queryString ? `?${queryString}` : ''}`);
@@ -72,7 +81,7 @@ export default function PurchasesPage() {
 
     useEffect(() => {
         fetchPurchases();
-    }, [startDate, endDate]);
+    }, [startDate, endDate, status]);
 
     const handlePurchaseSuccess = () => {
         setIsDialogOpen(false);
@@ -95,6 +104,11 @@ export default function PurchasesPage() {
 
     const columns: ColumnDef<Purchase>[] = [
         {
+            accessorKey: 'purchaseNo',
+            header: 'Purchase #',
+            cell: ({ row }) => <span className="font-mono">{row.getValue('purchaseNo')}</span>,
+        },
+        {
             accessorKey: 'date',
             header: 'Date',
             cell: ({ row }) => format(new Date(row.getValue('date')), 'dd/MM/yyyy p'),
@@ -102,17 +116,32 @@ export default function PurchasesPage() {
         {
             accessorKey: 'supplierName',
             header: 'Supplier',
-            cell: ({ row }) => <span className="font-bold text-slate-800">{row.getValue('supplierName')}</span>,
+            cell: ({ row }) => row.getValue('supplierName'),
         },
         {
             accessorKey: 'totalAmount',
             header: 'Total Amount',
-            cell: ({ row }) => <span className="font-black text-slate-900">৳{row.original.totalAmount.toLocaleString()}</span>,
+            cell: ({ row }) => <span className="font-semibold text-slate-900">৳{row.original.totalAmount.toLocaleString()}</span>,
         },
         {
             id: 'items_count',
             header: 'Items',
             cell: ({ row }) => <span>{row.original.items?.length || 0} Products</span>,
+        },
+        {
+            accessorKey: 'paymentStatus',
+            header: 'Status',
+            cell: ({ row }) => {
+                const status = row.getValue('paymentStatus') as string;
+                return (
+                    <Badge variant={
+                        status === 'Paid' ? 'success' :
+                            status === 'Partial' ? 'warning' : 'destructive'
+                    } className="font-bold uppercase text-[10px] tracking-widest">
+                        {status}
+                    </Badge>
+                );
+            },
         },
         {
             id: 'actions',
@@ -156,10 +185,7 @@ export default function PurchasesPage() {
         },
     ];
 
-    const filteredPurchases = purchases.filter(p =>
-        p.supplierName.toLowerCase().includes(search.toLowerCase()) ||
-        p.id.toString().includes(search)
-    );
+
 
     return (
         <div className="space-y-6 flex-1 flex flex-col">
@@ -204,32 +230,44 @@ export default function PurchasesPage() {
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
-                            placeholder="Search by supplier or ID..."
+                            placeholder="ID or Supplier (Press Enter)..."
                             className="pl-10 h-10 border-slate-200 focus:ring-slate-900"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && fetchPurchases()}
                         />
                     </div>
                 </div>
 
-                <div className="w-full md:w-auto">
+                <div className="w-full md:w-auto relative">
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">From Date</label>
-                    <Input
-                        type="date"
-                        className="h-10 border-slate-200 focus:ring-slate-900"
+                    <CustomDatePicker
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        onChange={setStartDate}
+                    />
+                </div>
+
+                <div className="w-full md:w-auto relative">
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">To Date</label>
+                    <CustomDatePicker
+                        value={endDate}
+                        onChange={setEndDate}
                     />
                 </div>
 
                 <div className="w-full md:w-auto">
-                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">To Date</label>
-                    <Input
-                        type="date"
-                        className="h-10 border-slate-200 focus:ring-slate-900"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                    />
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Status</label>
+                    <Select value={status} onValueChange={setStatus}>
+                        <SelectTrigger className="h-10 border-slate-200 w-[120px]">
+                            <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">All</SelectItem>
+                            <SelectItem value="Paid">Paid</SelectItem>
+                            <SelectItem value="Partial">Partial</SelectItem>
+                            <SelectItem value="Due">Due</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <Button
@@ -239,14 +277,15 @@ export default function PurchasesPage() {
                         setStartDate('');
                         setEndDate('');
                         setSearch('');
+                        setStatus('All');
                     }}
                 >
                     Clear
                 </Button>
             </div>
 
-            <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-xl border shadow-sm">
-                <DataTable columns={columns} data={filteredPurchases} loading={loading} />
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <DataTable columns={columns} data={purchases} loading={loading} />
             </div>
 
             <AlertDialog open={purchaseToDelete !== null} onOpenChange={() => setPurchaseToDelete(null)}>

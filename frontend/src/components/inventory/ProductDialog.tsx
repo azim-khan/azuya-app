@@ -33,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
     name: z.string().min(1, 'Name is required'),
+    sku: z.string().optional(),
     categoryId: z.string().min(1, 'Category is required'),
     unitId: z.string().min(1, 'Unit is required'),
     brandId: z.string().optional(),
@@ -59,6 +60,7 @@ export function ProductDialog({ open, onOpenChange, productToEdit, onSave }: Pro
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: '',
+            sku: '',
             categoryId: '',
             unitId: '',
             brandId: '',
@@ -92,6 +94,7 @@ export function ProductDialog({ open, onOpenChange, productToEdit, onSave }: Pro
         if (productToEdit) {
             form.reset({
                 name: productToEdit.name,
+                sku: productToEdit.sku || '',
                 categoryId: String(productToEdit.categoryId || ''),
                 unitId: String(productToEdit.unitId || ''),
                 brandId: productToEdit.brandId ? String(productToEdit.brandId) : '',
@@ -103,6 +106,7 @@ export function ProductDialog({ open, onOpenChange, productToEdit, onSave }: Pro
         } else {
             form.reset({
                 name: '',
+                sku: '',
                 categoryId: '',
                 unitId: '',
                 brandId: '',
@@ -118,6 +122,7 @@ export function ProductDialog({ open, onOpenChange, productToEdit, onSave }: Pro
         try {
             const payload = {
                 ...values,
+                sku: values.sku || '',
                 categoryId: Number(values.categoryId),
                 unitId: Number(values.unitId),
                 brandId: values.brandId ? Number(values.brandId) : null,
@@ -161,6 +166,20 @@ export function ProductDialog({ open, onOpenChange, productToEdit, onSave }: Pro
                                     <FormLabel>Product Name</FormLabel>
                                     <FormControl>
                                         <Input placeholder="Product Name" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="sku"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>SKU / Barcode</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="SKU or Barcode" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

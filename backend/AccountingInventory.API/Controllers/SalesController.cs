@@ -20,7 +20,9 @@ namespace AccountingInventory.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<SaleDto>>> GetSales(
             [FromQuery] DateTime? startDate, 
-            [FromQuery] DateTime? endDate)
+            [FromQuery] DateTime? endDate,
+            [FromQuery] string? search,
+            [FromQuery] string? status)
         {
             var query = _context.Sales
                 .Include(s => s.Customer)
@@ -36,6 +38,16 @@ namespace AccountingInventory.API.Controllers
             {
                 var end = endDate.Value.Date.AddDays(1).AddTicks(-1);
                 query = query.Where(s => s.Date <= end);
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(s => s.InvoiceNo.Contains(search) || (s.Customer != null && s.Customer.Name.Contains(search)));
+            }
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(s => s.PaymentStatus == status);
             }
 
             var sales = await query

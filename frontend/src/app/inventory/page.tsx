@@ -22,6 +22,7 @@ import { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 interface Product {
     id: number;
     name: string;
+    sku: string;
     categoryName: string;
     categoryId: number;
     unitName: string;
@@ -153,6 +154,7 @@ export default function Inventory() {
     const productColumns = useMemo<ColumnDef<Product>[]>(
         () => [
             { accessorKey: 'name', header: 'Name' },
+            { accessorKey: 'sku', header: 'SKU' },
             { accessorKey: 'categoryName', header: 'Category' },
             { accessorKey: 'brandName', header: 'Brand', cell: info => info.getValue() || '-' },
             { accessorKey: 'model', header: 'Model', cell: info => info.getValue() || '-' },
@@ -304,6 +306,7 @@ export default function Inventory() {
                         setPagination={setProductPagination}
                         sorting={productSorting}
                         setSorting={setProductSorting}
+                        totalCount={productCount}
                     />
                 </TabsContent>
 

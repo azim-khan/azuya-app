@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import InvoicePrinter from '@/components/sales/InvoicePrinter';
@@ -16,6 +17,7 @@ import InvoicePrinter from '@/components/sales/InvoicePrinter';
 interface Product {
     id: number;
     name: string;
+    sku?: string;
     salePrice: number;
     stockQuantity: number;
     unitName: string;
@@ -164,8 +166,10 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
 
     const filteredProducts = useMemo(() => {
         if (!productSearch) return [];
+        const search = productSearch.toLowerCase().trim();
         return products.filter(p =>
-            p.name.toLowerCase().includes(productSearch.toLowerCase())
+            p.name.toLowerCase().includes(search) ||
+            p.sku?.toLowerCase().includes(search)
         ).slice(0, 10);
     }, [products, productSearch]);
 
@@ -236,25 +240,38 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
     return (
         <div className="flex flex-col h-full bg-white p-1">
             {/* Header / Actions - Sticky to top */}
-            <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg border mb-4 sticky top-0 z-30 shrink-0">
-                <div className="flex flex-col">
-                    <h2 className="text-xl font-bold text-slate-900 leading-tight">Create New Sale</h2>
-                    <p className="text-xs text-slate-500 font-medium">Invoice: <span className="text-slate-900 font-bold">{invoiceNo}</span> | {format(new Date(date), 'dd/MM/yyyy p')}</p>
+            <header className="p-6 bg-white border-b flex justify-between items-center sticky top-0 z-30 shadow-sm shrink-0">
+                <div>
+                    <h2 className="font-bold uppercase">
+                        {saleId ? 'Edit Sale' : 'New Sale'}
+                    </h2>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                        Invoice: {invoiceNo} • Record items sold to customers
+                    </p>
                 </div>
                 <div className="flex gap-3">
-                    <Button variant="outline" onClick={onCancel} disabled={isSaving} className="border-slate-300">
+                    <Button variant="outline" onClick={onCancel} disabled={isSaving} className="font-bold border-slate-200">
                         Cancel
                     </Button>
-                    <Button variant="outline" disabled={isSaving} onClick={() => handleSave(false)} className="border-slate-900 text-slate-900 hover:bg-slate-50 font-bold">
-                        <Save className="mr-2 h-4 w-4" /> {saleId ? 'Update Sale' : 'Save Only'}
+                    <Button
+                        variant="outline"
+                        disabled={isSaving}
+                        onClick={() => handleSave(false)}
+                        className="border-slate-900 text-slate-900 hover:bg-slate-50 font-black uppercase tracking-widest text-[11px]"
+                    >
+                        <Save className="mr-2 h-4 w-4" /> {saleId ? 'Update' : 'Save'}
                     </Button>
-                    <Button disabled={isSaving} onClick={() => handleSave(true)} className="bg-slate-900 hover:bg-black text-white font-bold">
+                    <Button
+                        disabled={isSaving}
+                        onClick={() => handleSave(true)}
+                        className="bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-[11px] shadow-lg shadow-slate-200"
+                    >
                         <Printer className="mr-2 h-4 w-4" /> {saleId ? 'Update & Print' : 'Save & Print'}
                     </Button>
                 </div>
-            </div>
+            </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 overflow-hidden min-h-0 px-1 pb-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 overflow-hidden min-h-0 p-4">
                 {/* Left Side: Product Selector & List */}
                 <div className="lg:col-span-3 flex flex-col min-h-0 bg-white border rounded-xl shadow-sm overflow-hidden">
                     <div className="bg-slate-50/80 border-b py-3 px-6 flex items-center justify-between shrink-0">
@@ -268,7 +285,7 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <Input
                                     className="pl-10 h-10 border-slate-300 focus:ring-blue-500 shadow-sm text-sm"
-                                    placeholder="Search product name..."
+                                    placeholder="Search product name or SKU..."
                                     value={productSearch}
                                     onChange={(e) => {
                                         setProductSearch(e.target.value);
@@ -296,7 +313,7 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                                                 >
                                                     <div className="flex flex-col">
                                                         <span className="font-bold text-slate-900 group-hover:text-blue-700">{p.name}</span>
-                                                        <span className="text-xs text-slate-500">Price: ৳{p.salePrice}</span>
+                                                        <span className="text-xs text-slate-500">Price: ৳{p.salePrice} • SKU: {p.sku || 'N/A'}</span>
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <Badge variant={p.stockQuantity > 5 ? "outline" : "destructive"} className="px-2 py-0.5 rounded-md text-[10px] whitespace-nowrap">
@@ -389,11 +406,11 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <Input
+                            <CustomDatePicker
                                 type="datetime-local"
                                 value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                className="h-10 border-slate-300 text-slate-600"
+                                onChange={setDate}
+                                className="border-slate-300"
                             />
                         </CardContent>
                     </Card>

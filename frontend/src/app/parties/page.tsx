@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/services/api';
-import { Plus, Search, Loader2, Pencil } from 'lucide-react';
+import { Plus, Search, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -20,8 +20,10 @@ import {
     TabsTrigger,
 } from '@/components/ui/tabs';
 import { PartyDialog } from '@/components/parties/PartyDialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Parties() {
+    const { toast } = useToast();
     const [activeTab, setActiveTab] = useState('customers');
     const [parties, setParties] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -55,6 +57,23 @@ export default function Parties() {
     const handleEdit = (party: any) => {
         setEditingParty(party);
         setShowDialog(true);
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!window.confirm(`Are you sure you want to delete this ${activeTab.slice(0, -1)}?`)) return;
+
+        try {
+            const endpoint = activeTab === 'customers' ? '/customers' : '/suppliers';
+            await api.delete(`${endpoint}/${id}`);
+            toast({ title: 'Success', description: 'Deleted successfully' });
+            fetchParties();
+        } catch (error: any) {
+            toast({
+                title: 'Delete Failed',
+                description: error.response?.data || 'Cannot delete because this party has associated records.',
+                variant: 'destructive'
+            });
+        }
     };
 
     return (
@@ -110,6 +129,9 @@ export default function Parties() {
                                                     <Button variant="ghost" size="icon" onClick={() => handleEdit(party)}>
                                                         <Pencil className="h-4 w-4" />
                                                     </Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(party.id)} className="text-rose-500 hover:text-rose-700 hover:bg-rose-50">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -124,7 +146,7 @@ export default function Parties() {
             <PartyDialog
                 open={showDialog}
                 onOpenChange={setShowDialog}
-                type={activeTab as 'customer' | 'supplier'}
+                type={activeTab === 'customers' ? 'customer' : 'supplier'}
                 partyToEdit={editingParty}
                 onSave={fetchParties}
             />

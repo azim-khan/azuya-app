@@ -9,6 +9,9 @@ namespace AccountingInventory.Core.Entities
         [MaxLength(200)]
         public string Name { get; set; } = string.Empty;
 
+        [MaxLength(100)]
+        public string SKU { get; set; } = string.Empty;
+
         public int CategoryId { get; set; }
         public Category? Category { get; set; }
 

@@ -1,7 +1,9 @@
 using AccountingInventory.Core.DTOs;
 using AccountingInventory.Core.Entities;
 using AccountingInventory.Core.Interfaces;
+using AccountingInventory.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AccountingInventory.API.Controllers
 {
@@ -10,10 +12,12 @@ namespace AccountingInventory.API.Controllers
     public class CustomersController : ControllerBase
     {
         private readonly IGenericRepository<Customer> _repository;
+        private readonly ApplicationDbContext _context;
 
-        public CustomersController(IGenericRepository<Customer> repository)
+        public CustomersController(IGenericRepository<Customer> repository, ApplicationDbContext context)
         {
             _repository = repository;
+            _context = context;
         }
 
         /// <summary>
@@ -80,6 +84,13 @@ namespace AccountingInventory.API.Controllers
         {
             var customer = await _repository.GetByIdAsync(id);
             if (customer == null) return NotFound();
+
+            // Check if customer has any references in Sales
+            var hasSales = await _context.Sales.AnyAsync(s => s.CustomerId == id);
+            if (hasSales)
+            {
+                return BadRequest("Cannot delete customer because they have associated sales records.");
+            }
 
             await _repository.DeleteAsync(customer);
             return NoContent();

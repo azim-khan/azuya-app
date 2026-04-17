@@ -22,22 +22,55 @@ namespace AccountingInventory.API.Controllers
         /// Gets all purchases.
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetPurchases()
+        public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetPurchases(
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
+            [FromQuery] string? search,
+            [FromQuery] string? status)
         {
-            var purchases = await _context.Purchases
+            var query = _context.Purchases
                 .Include(p => p.Supplier)
                 .Include(p => p.PurchaseDetails)
                 .ThenInclude(pd => pd.Product)
+                .AsQueryable();
+
+            if (startDate.HasValue)
+            {
+                var start = startDate.Value.Date;
+                query = query.Where(p => p.Date >= start);
+            }
+
+            if (endDate.HasValue)
+            {
+                var end = endDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(p => p.Date <= end);
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(p => p.PurchaseNo.Contains(search) || (p.Supplier != null && p.Supplier.Name.Contains(search)));
+            }
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(p => p.PaymentStatus == status);
+            }
+
+            var purchases = await query
                 .OrderByDescending(p => p.Date)
                 .ToListAsync();
 
             var dtos = purchases.Select(p => new PurchaseDto
             {
                 Id = p.Id,
+                PurchaseNo = p.PurchaseNo,
                 SupplierId = p.SupplierId,
                 SupplierName = p.Supplier?.Name ?? "",
                 Date = p.Date,
                 TotalAmount = p.TotalAmount,
+                PaidAmount = p.PaidAmount,
+                DueAmount = p.DueAmount,
+                PaymentStatus = p.PaymentStatus,
                 Items = p.PurchaseDetails.Select(pd => new PurchaseDetailDto
                 {
                     ProductId = pd.ProductId,
@@ -65,10 +98,14 @@ namespace AccountingInventory.API.Controllers
             var dto = new PurchaseDto
             {
                 Id = p.Id,
+                PurchaseNo = p.PurchaseNo,
                 SupplierId = p.SupplierId,
                 SupplierName = p.Supplier?.Name ?? "",
                 Date = p.Date,
                 TotalAmount = p.TotalAmount,
+                PaidAmount = p.PaidAmount,
+                DueAmount = p.DueAmount,
+                PaymentStatus = p.PaymentStatus,
                 Items = p.PurchaseDetails.Select(pd => new PurchaseDetailDto
                 {
                     ProductId = pd.ProductId,
@@ -93,8 +130,10 @@ namespace AccountingInventory.API.Controllers
             {
                 var purchase = new Purchase
                 {
+                    PurchaseNo = dto.PurchaseNo,
                     Date = dto.Date,
                     SupplierId = dto.SupplierId,
+                    PaidAmount = dto.PaidAmount,
                     TotalAmount = 0
                 };
 
@@ -117,6 +156,11 @@ namespace AccountingInventory.API.Controllers
                         Total = totalLine
                     });
                 }
+
+                purchase.DueAmount = purchase.TotalAmount - purchase.PaidAmount;
+                if (purchase.DueAmount <= 0) purchase.PaymentStatus = "Paid";
+                else if (purchase.PaidAmount > 0) purchase.PaymentStatus = "Partial";
+                else purchase.PaymentStatus = "Due";
 
                 _context.Purchases.Add(purchase);
                 await _context.SaveChangesAsync();
@@ -158,8 +202,10 @@ namespace AccountingInventory.API.Controllers
                 _context.PurchaseDetails.RemoveRange(purchase.PurchaseDetails);
 
                 // 3. Update props and re-apply stock
+                purchase.PurchaseNo = dto.PurchaseNo;
                 purchase.Date = dto.Date;
                 purchase.SupplierId = dto.SupplierId;
+                purchase.PaidAmount = dto.PaidAmount;
                 purchase.TotalAmount = 0;
 
                 foreach (var item in dto.Items)
@@ -181,6 +227,11 @@ namespace AccountingInventory.API.Controllers
                         Total = totalLine
                     });
                 }
+
+                purchase.DueAmount = purchase.TotalAmount - purchase.PaidAmount;
+                if (purchase.DueAmount <= 0) purchase.PaymentStatus = "Paid";
+                else if (purchase.PaidAmount > 0) purchase.PaymentStatus = "Partial";
+                else purchase.PaymentStatus = "Due";
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -227,6 +278,16 @@ namespace AccountingInventory.API.Controllers
                 await transaction.RollbackAsync();
                 return BadRequest(ex.Message);
             }
+        }
+        [HttpGet("next-purchase-number")]
+        public async Task<ActionResult<object>> GetNextPurchaseNumber()
+        {
+            var lastPurchase = await _context.Purchases
+                .OrderByDescending(p => p.Id)
+                .FirstOrDefaultAsync();
+
+            int nextId = (lastPurchase?.Id ?? 0) + 1;
+            return Ok(new { purchaseNo = $"P-{nextId:D4}" });
         }
     }
 }

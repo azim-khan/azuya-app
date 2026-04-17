@@ -1,7 +1,9 @@
 using AccountingInventory.Core.DTOs;
 using AccountingInventory.Core.Entities;
 using AccountingInventory.Core.Interfaces;
+using AccountingInventory.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AccountingInventory.API.Controllers
 {
@@ -10,10 +12,12 @@ namespace AccountingInventory.API.Controllers
     public class SuppliersController : ControllerBase
     {
         private readonly IGenericRepository<Supplier> _repository;
+        private readonly ApplicationDbContext _context;
 
-        public SuppliersController(IGenericRepository<Supplier> repository)
+        public SuppliersController(IGenericRepository<Supplier> repository, ApplicationDbContext context)
         {
             _repository = repository;
+            _context = context;
         }
 
         /// <summary>
@@ -80,6 +84,13 @@ namespace AccountingInventory.API.Controllers
         {
             var supplier = await _repository.GetByIdAsync(id);
             if (supplier == null) return NotFound();
+
+            // Check if supplier has any references in Purchases
+            var hasPurchases = await _context.Purchases.AnyAsync(p => p.SupplierId == id);
+            if (hasPurchases)
+            {
+                return BadRequest("Cannot delete supplier because they have associated purchase records.");
+            }
 
             await _repository.DeleteAsync(supplier);
             return NoContent();

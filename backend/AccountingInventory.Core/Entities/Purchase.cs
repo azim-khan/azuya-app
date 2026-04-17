@@ -7,6 +7,10 @@ namespace AccountingInventory.Core.Entities
 {
     public class Purchase : BaseEntity
     {
+        [Required]
+        [MaxLength(50)]
+        public string PurchaseNo { get; set; } = string.Empty;
+
         public DateTime Date { get; set; } = DateTime.UtcNow;
 
         public int SupplierId { get; set; }
@@ -14,6 +18,15 @@ namespace AccountingInventory.Core.Entities
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PaidAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal DueAmount { get; set; }
+
+        [MaxLength(20)]
+        public string PaymentStatus { get; set; } = "Paid"; // Paid, Partial, Due
 
         public List<PurchaseDetail> PurchaseDetails { get; set; } = new();
     }

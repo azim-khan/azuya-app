@@ -18,9 +18,12 @@ namespace AccountingInventory.Core.DTOs
 
     public class CreatePurchaseDto
     {
+        [Required]
+        public string PurchaseNo { get; set; } = string.Empty;
         public DateTime Date { get; set; } = DateTime.UtcNow;
         [Required]
         public int SupplierId { get; set; }
+        public decimal PaidAmount { get; set; }
         public List<CreatePurchaseDetailDto> Items { get; set; } = new();
     }
 
@@ -36,10 +39,14 @@ namespace AccountingInventory.Core.DTOs
     public class PurchaseDto
     {
         public int Id { get; set; }
+        public string PurchaseNo { get; set; } = string.Empty;
         public DateTime Date { get; set; }
         public int SupplierId { get; set; }
         public string SupplierName { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
+        public decimal PaidAmount { get; set; }
+        public decimal DueAmount { get; set; }
+        public string PaymentStatus { get; set; } = string.Empty;
         public List<PurchaseDetailDto> Items { get; set; } = new();
     }
 }

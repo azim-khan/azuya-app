@@ -1,21 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import api from '@/services/api';
-import { Plus, Search, FileText, Trash2, Printer, Eye, Pencil } from 'lucide-react';
+import { Plus, Search, Trash2, Eye, Pencil } from 'lucide-react';
 import SaleDetailsDialog from '@/components/sales/SaleDetailsDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
     DialogDescription,
     DialogTrigger,
@@ -50,6 +50,7 @@ export default function SalesPage() {
     const [search, setSearch] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [status, setStatus] = useState('All');
     const [saleToDelete, setSaleToDelete] = useState<number | null>(null);
     const [viewingSaleId, setViewingSaleId] = useState<number | null>(null);
     const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
@@ -63,6 +64,8 @@ export default function SalesPage() {
             const params = new URLSearchParams();
             if (startDate) params.append('startDate', startDate);
             if (endDate) params.append('endDate', endDate);
+            if (search) params.append('search', search);
+            if (status !== 'All') params.append('status', status);
 
             const queryString = params.toString();
             const res = await api.get(`/sales${queryString ? `?${queryString}` : ''}`);
@@ -77,7 +80,7 @@ export default function SalesPage() {
 
     useEffect(() => {
         fetchSales();
-    }, [startDate, endDate]);
+    }, [startDate, endDate, status]);
 
     const handleSaleSuccess = () => {
         setIsDialogOpen(false);
@@ -102,7 +105,7 @@ export default function SalesPage() {
         {
             accessorKey: 'invoiceNo',
             header: 'Invoice #',
-            cell: ({ row }) => <span className="font-mono font-medium">{row.getValue('invoiceNo')}</span>,
+            cell: ({ row }) => <span className="font-mono">{row.getValue('invoiceNo')}</span>,
         },
         {
             accessorKey: 'date',
@@ -186,16 +189,13 @@ export default function SalesPage() {
         },
     ];
 
-    const filteredSales = sales.filter(s =>
-        s.invoiceNo.toLowerCase().includes(search.toLowerCase()) ||
-        s.customerName.toLowerCase().includes(search.toLowerCase())
-    );
+
 
     return (
         <div className="space-y-6 flex-1 flex flex-col">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Sales Transactions</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">Sales Management</h2>
                     <p className="text-muted-foreground">Manage your sales orders, invoices and payments.</p>
                 </div>
                 <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -239,32 +239,44 @@ export default function SalesPage() {
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
-                            placeholder="Invoice # or Customer..."
+                            placeholder="Invoice # or Customer (Press Enter)..."
                             className="pl-10 h-10 border-slate-200 focus:ring-slate-900"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && fetchSales()}
                         />
                     </div>
                 </div>
 
                 <div className="w-full md:w-auto">
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">From Date</label>
-                    <Input
-                        type="date"
-                        className="h-10 border-slate-200 focus:ring-slate-900"
+                    <CustomDatePicker
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        onChange={setStartDate}
                     />
                 </div>
 
                 <div className="w-full md:w-auto">
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">To Date</label>
-                    <Input
-                        type="date"
-                        className="h-10 border-slate-200 focus:ring-slate-900"
+                    <CustomDatePicker
                         value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
+                        onChange={setEndDate}
                     />
+                </div>
+
+                <div className="w-full md:w-auto">
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Status</label>
+                    <Select value={status} onValueChange={setStatus}>
+                        <SelectTrigger className="h-10  border-slate-200 w-[120px]">
+                            <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">All</SelectItem>
+                            <SelectItem value="Paid">Paid</SelectItem>
+                            <SelectItem value="Partial">Partial</SelectItem>
+                            <SelectItem value="Due">Due</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <Button
@@ -274,6 +286,7 @@ export default function SalesPage() {
                         setStartDate('');
                         setEndDate('');
                         setSearch('');
+                        setStatus('All');
                     }}
                 >
                     Clear
@@ -281,7 +294,7 @@ export default function SalesPage() {
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                <DataTable columns={columns} data={filteredSales} loading={loading} />
+                <DataTable columns={columns} data={sales} loading={loading} />
             </div>
 
             <AlertDialog open={saleToDelete !== null} onOpenChange={() => setSaleToDelete(null)}>

@@ -24,6 +24,7 @@ namespace AccountingInventory.Infrastructure.Repositories
             {
                 query = query.Where(p => 
                     p.Name.ToLower().Contains(specParams.Search) ||
+                    p.SKU.ToLower().Contains(specParams.Search) ||
                     (p.Category != null && p.Category.Name.ToLower().Contains(specParams.Search)) ||
                     (p.Brand != null && p.Brand.Name.ToLower().Contains(specParams.Search)) ||
                     (p.Model != null && p.Model.ToLower().Contains(specParams.Search))
@@ -37,6 +38,9 @@ namespace AccountingInventory.Infrastructure.Repositories
                 {
                     case "name":
                         query = isDesc ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name);
+                        break;
+                    case "sku":
+                        query = isDesc ? query.OrderByDescending(p => p.SKU) : query.OrderBy(p => p.SKU);
                         break;
                     case "purchaseprice":
                         query = isDesc ? query.OrderByDescending(p => p.PurchasePrice) : query.OrderBy(p => p.PurchasePrice);

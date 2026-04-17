@@ -28,6 +28,7 @@ namespace AccountingInventory.API.Controllers
             {
                 Id = p.Id,
                 Name = p.Name,
+                SKU = p.SKU,
                 CategoryId = p.CategoryId,
                 UnitId = p.UnitId,
                 PurchasePrice = p.PurchasePrice,
@@ -57,6 +58,7 @@ namespace AccountingInventory.API.Controllers
             {
                 Id = product.Id,
                 Name = product.Name,
+                SKU = product.SKU,
                 CategoryId = product.CategoryId,
                 UnitId = product.UnitId,
                 PurchasePrice = product.PurchasePrice,
@@ -81,6 +83,7 @@ namespace AccountingInventory.API.Controllers
             var product = new Product
             {
                 Name = dto.Name,
+                SKU = dto.SKU,
                 CategoryId = dto.CategoryId,
                 UnitId = dto.UnitId,
                 BrandId = dto.BrandId,
@@ -104,6 +107,7 @@ namespace AccountingInventory.API.Controllers
             if (product == null) return NotFound();
 
             product.Name = dto.Name;
+            product.SKU = dto.SKU;
             product.CategoryId = dto.CategoryId;
             product.UnitId = dto.UnitId;
             product.UnitId = dto.UnitId;

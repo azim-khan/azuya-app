@@ -21,5 +21,7 @@ namespace AccountingInventory.Core.DTOs
             get => _search;
             set => _search = value?.ToLower();
         }
+
+        public int? ProductId { get; set; }
     }
 }

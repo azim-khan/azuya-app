@@ -10,8 +10,10 @@ import {
     Users,
     CreditCard,
     FileBarChart,
-    Settings
+    Settings,
+    ShieldCheck
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import clsx from 'clsx';
 
 const navItems = [
@@ -22,21 +24,29 @@ const navItems = [
     { name: 'Parties', href: '/parties', icon: Users },
     { name: 'Accounts', href: '/accounts', icon: CreditCard },
     { name: 'Reports', href: '/reports', icon: FileBarChart },
+    { name: 'User Management', href: '/users', icon: ShieldCheck, superAdminOnly: true },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const { user } = useAuth();
+
+    const filteredNavItems = navItems.filter(item => {
+        if (item.superAdminOnly && user?.role !== 'SuperAdmin') return false;
+        return true;
+    });
 
     return (
         <aside className="w-64 bg-slate-900 text-slate-300 h-screen fixed left-0 top-0 flex flex-col border-r border-slate-800">
-            <div className="p-6">
-                <h1 className="text-2xl font-bold text-white tracking-tight">Acct<span className="text-blue-500">Sys</span></h1>
+            <div className="p-6 text-center">
+                <h1 className="text-3xl font-black text-white tracking-tighter italic">AZU<span className="text-blue-500">YA</span></h1>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Inventory & Accounting Management</p>
             </div>
 
-            <nav className="flex-1 px-4 space-y-2">
-                {navItems.map((item) => {
-                    const Icon = item.icon;
+            <nav className="flex-1 px-4 space-y-2 mt-4">
+                {filteredNavItems.map((item) => {
+                    const Icon = (item as any).icon;
                     const isActive = pathname === item.href;
 
                     return (

@@ -1,16 +1,18 @@
 'use client';
 
-import { User, Bell, Search } from 'lucide-react';
+import { User, Bell, Search, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Header() {
+    const { user, logout } = useAuth();
+
     return (
         <header className="h-16 bg-white border-b flex items-center justify-between px-8 sticky top-0 z-20">
             <div className="flex items-center gap-4 flex-1">
-                {/* Search in header if needed, but for now just a placeholder to balance layout */}
                 <div className="hidden md:flex items-center gap-2 text-slate-400 bg-slate-50 px-3 py-1.5 rounded-md border text-sm w-64">
                     <Search size={16} />
-                    <span>Search...</span>
+                    <span>Quick find...</span>
                 </div>
             </div>
 
@@ -23,13 +25,17 @@ export default function Header() {
                 
                 <div className="flex items-center gap-3">
                     <div className="text-right hidden sm:block">
-                        <p className="text-sm font-medium text-slate-900 leading-none">Admin User</p>
-                        <p className="text-xs text-slate-500 mt-1">Administrator</p>
+                        <p className="text-sm font-bold text-slate-900 leading-none">{user?.fullName || 'User'}</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mt-1">{user?.role || 'Guest'}</p>
                     </div>
-                    <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-200 cursor-pointer hover:bg-blue-700 transition-colors">
-                        U
+                    <div className="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold shadow-md cursor-pointer hover:bg-black transition-colors uppercase">
+                        {user?.fullName?.charAt(0) || 'U'}
                     </div>
                 </div>
+
+                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-500" onClick={logout} title="Logout">
+                    <LogOut size={18} />
+                </Button>
             </div>
         </header>
     );

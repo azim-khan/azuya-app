@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google"; // Or standard font import if Inter is not available in default setup (Next 13+ standard)
+import { Inter } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/context/AuthContext";
+import AuthGuard from "@/components/layout/AuthGuard";
+import AppLayout from "@/components/layout/AppLayout";
 
-// If Inter fails, we will fallback to system fonts via CSS
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -21,15 +21,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar />
-          <div className="flex-1 ml-64 flex flex-col min-h-0">
-            <Header />
-            <main className="flex-1 p-8 bg-slate-50 flex flex-col min-h-0 overflow-auto">
+        <AuthProvider>
+          <AuthGuard>
+            <AppLayout>
               {children}
-            </main>
-          </div>
-        </div>
+            </AppLayout>
+          </AuthGuard>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>

@@ -1,5 +1,6 @@
 using AccountingInventory.Core.DTOs;
 using AccountingInventory.Core.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -26,7 +27,7 @@ namespace AccountingInventory.API.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
         {
-            var user = await _userManager.FindByEmailAsync(loginDto.Email);
+            var user = await _userManager.FindByNameAsync(loginDto.Username);
 
             if (user == null || user.IsDisabled || !await _userManager.CheckPasswordAsync(user, loginDto.Password))
                 return Unauthorized("Invalid credentials or account disabled.");
@@ -42,7 +43,7 @@ namespace AccountingInventory.API.Controllers
             return new UserDto
             {
                 Id = user.Id,
-                Email = user.Email!,
+                Username = user.UserName!,
                 FullName = user.FullName ?? "",
                 Role = roles.FirstOrDefault() ?? "User",
                 Token = token,
@@ -56,8 +57,8 @@ namespace AccountingInventory.API.Controllers
             var principal = GetPrincipalFromExpiredToken(tokenRequest.Token);
             if (principal == null) return BadRequest("Invalid token");
 
-            var email = principal.FindFirstValue(ClaimTypes.Email);
-            var user = await _userManager.FindByEmailAsync(email!);
+            var username = principal.FindFirstValue(ClaimTypes.Name);
+            var user = await _userManager.FindByNameAsync(username!);
 
             if (user == null || user.RefreshToken != tokenRequest.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.Now)
                 return BadRequest("Invalid refresh token");
@@ -72,7 +73,7 @@ namespace AccountingInventory.API.Controllers
             return new UserDto
             {
                 Id = user.Id,
-                Email = user.Email!,
+                Username = user.UserName!,
                 FullName = user.FullName ?? "",
                 Role = roles.FirstOrDefault() ?? "User",
                 Token = newToken,
@@ -80,13 +81,29 @@ namespace AccountingInventory.API.Controllers
             };
         }
 
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<ActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            var username = User.FindFirstValue(ClaimTypes.Name);
+            if (string.IsNullOrEmpty(username)) return Unauthorized();
+
+            var user = await _userManager.FindByNameAsync(username);
+            if (user == null) return NotFound();
+
+            var result = await _userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
+            if (!result.Succeeded) return BadRequest(result.Errors);
+
+            return NoContent();
+        }
+
         private string CreateToken(AppUser user, IList<string> roles)
         {
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Email, user.Email!),
+                new Claim(ClaimTypes.Name, user.UserName!),
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
-                new Claim(ClaimTypes.Name, user.FullName ?? "")
+                new Claim("FullName", user.FullName ?? "")
             };
 
             foreach (var role in roles)

@@ -33,7 +33,7 @@ namespace AccountingInventory.API.Controllers
                 userDtos.Add(new UserDto
                 {
                     Id = user.Id,
-                    Email = user.Email!,
+                    Username = user.UserName!,
                     FullName = user.FullName ?? "",
                     Role = roles.FirstOrDefault() ?? "User",
                     IsDisabled = user.IsDisabled
@@ -46,13 +46,12 @@ namespace AccountingInventory.API.Controllers
         [HttpPost]
         public async Task<ActionResult<UserDto>> CreateUser(RegisterDto registerDto)
         {
-            if (await _userManager.FindByEmailAsync(registerDto.Email) != null)
-                return BadRequest("Email already exists");
+            if (await _userManager.FindByNameAsync(registerDto.Username) != null)
+                return BadRequest("Username already exists");
 
             var user = new AppUser
             {
-                UserName = registerDto.Email,
-                Email = registerDto.Email,
+                UserName = registerDto.Username,
                 FullName = registerDto.FullName,
                 EmailConfirmed = true
             };
@@ -68,7 +67,7 @@ namespace AccountingInventory.API.Controllers
             return Ok(new UserDto
             {
                 Id = user.Id,
-                Email = user.Email,
+                Username = user.UserName!,
                 FullName = user.FullName,
                 Role = role
             });
@@ -81,8 +80,7 @@ namespace AccountingInventory.API.Controllers
             if (user == null) return NotFound();
 
             user.FullName = updateDto.FullName;
-            user.Email = updateDto.Email;
-            user.UserName = updateDto.Email;
+            user.UserName = updateDto.Username;
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded) return BadRequest(result.Errors);

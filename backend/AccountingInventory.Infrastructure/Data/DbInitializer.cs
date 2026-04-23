@@ -23,14 +23,13 @@ namespace AccountingInventory.Infrastructure.Data
             if (!await userManager.Users.AnyAsync())
             {
                 var adminSettings = configuration.GetSection("SuperAdmin");
-                var email = adminSettings["Email"] ?? "admin@azuya.com";
+                var username = adminSettings["Username"] ?? "admin";
                 var password = adminSettings["Password"] ?? "AdminPassword123!";
                 var fullName = adminSettings["FullName"] ?? "Super Admin";
 
                 var user = new AppUser
                 {
-                    UserName = email,
-                    Email = email,
+                    UserName = username,
                     FullName = fullName,
                     EmailConfirmed = true
                 };

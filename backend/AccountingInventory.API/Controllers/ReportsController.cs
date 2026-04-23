@@ -2,6 +2,8 @@ using AccountingInventory.Core.DTOs;
 using AccountingInventory.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AccountingInventory.API.Controllers
 {
@@ -22,14 +24,10 @@ namespace AccountingInventory.API.Controllers
             var query = _context.Products.AsQueryable();
 
             if (!string.IsNullOrEmpty(specParams.Search))
-            {
                 query = query.Where(p => p.Name.Contains(specParams.Search) || p.SKU.Contains(specParams.Search));
-            }
 
             if (specParams.ProductId.HasValue)
-            {
                 query = query.Where(p => p.Id == specParams.ProductId.Value);
-            }
 
             var totalInventoryValue = await query.SumAsync(p => p.StockQuantity * p.PurchasePrice);
             var count = await query.CountAsync();
@@ -59,53 +57,48 @@ namespace AccountingInventory.API.Controllers
             });
         }
 
-        [HttpGet("sales")]
-        public async Task<ActionResult> GetSalesReport([FromQuery] ReportParams reportParams)
+        [HttpGet("sales-summary")]
+        public async Task<ActionResult> GetSalesSummary([FromQuery] ReportParams reportParams)
         {
-            var query = _context.SaleDetails
-                .Include(si => si.Product)
-                .Include(si => si.Sale)
+            var query = _context.Sales
+                .Include(s => s.Customer)
                 .AsQueryable();
 
             if (reportParams.StartDate.HasValue)
-            {
-                query = query.Where(si => si.Sale.Date >= reportParams.StartDate.Value);
-            }
+                query = query.Where(s => s.Date >= reportParams.StartDate.Value);
 
             if (reportParams.EndDate.HasValue)
-            {
-                query = query.Where(si => si.Sale.Date <= reportParams.EndDate.Value);
-            }
+                query = query.Where(s => s.Date <= reportParams.EndDate.Value);
 
             if (!string.IsNullOrEmpty(reportParams.Search))
-            {
-                query = query.Where(si => si.Product.Name.Contains(reportParams.Search) || si.Product.SKU.Contains(reportParams.Search));
-            }
+                query = query.Where(s => s.InvoiceNo.Contains(reportParams.Search));
 
-            if (reportParams.ProductId.HasValue)
-            {
-                query = query.Where(si => si.ProductId == reportParams.ProductId.Value);
-            }
+            if (reportParams.CustomerId.HasValue)
+                query = query.Where(s => s.CustomerId == reportParams.CustomerId.Value);
 
-            var totalValue = await query.SumAsync(si => si.Total);
+            if (!string.IsNullOrEmpty(reportParams.PaymentStatus))
+                query = query.Where(s => s.PaymentStatus == reportParams.PaymentStatus);
+
             var count = await query.CountAsync();
+            var totalValue = await query.SumAsync(s => s.TotalAmount);
+            var totalPaid = await query.SumAsync(s => s.PaidAmount);
+            var totalDue = await query.SumAsync(s => s.DueAmount);
 
             var items = await query
-                .OrderByDescending(si => si.Sale.Date)
+                .OrderByDescending(s => s.Date)
                 .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
                 .Take(reportParams.PageSize)
-                .Select(si => new
+                .Select(s => new
                 {
-                    si.Id,
-                    si.SaleId,
-                    si.Sale.InvoiceNo,
-                    si.Sale.Date,
-                    si.ProductId,
-                    ProductName = si.Product.Name,
-                    ProductSKU = si.Product.SKU,
-                    si.Quantity,
-                    si.UnitPrice,
-                    si.Total
+                    s.Id,
+                    s.InvoiceNo,
+                    s.Date,
+                    s.CustomerId,
+                    CustomerName = s.Customer != null ? s.Customer.Name : "Walk-in Customer",
+                    s.TotalAmount,
+                    s.PaidAmount,
+                    s.DueAmount,
+                    s.PaymentStatus
                 })
                 .ToListAsync();
 
@@ -115,57 +108,138 @@ namespace AccountingInventory.API.Controllers
                 PageIndex = reportParams.PageIndex,
                 PageSize = reportParams.PageSize,
                 Count = count,
-                TotalValue = totalValue
+                TotalValue = totalValue,
+                TotalPaid = totalPaid,
+                TotalDue = totalDue
+            });
+        }
+        [HttpGet("sales/by-product")]
+        public async Task<ActionResult> GetSalesByProduct([FromQuery] ReportParams reportParams)
+        {
+            var query = _context.SaleDetails.AsQueryable();
+
+            if (reportParams.StartDate.HasValue)
+                query = query.Where(sd => sd.Sale.Date >= reportParams.StartDate.Value);
+            if (reportParams.EndDate.HasValue)
+                query = query.Where(sd => sd.Sale.Date <= reportParams.EndDate.Value);
+            if (!string.IsNullOrEmpty(reportParams.Search))
+                query = query.Where(sd => sd.Product.Name.Contains(reportParams.Search));
+            if (reportParams.ProductId.HasValue)
+                query = query.Where(sd => sd.ProductId == reportParams.ProductId.Value);
+
+            var groupedQuery = query
+                .GroupBy(sd => new { sd.ProductId, sd.Product.Name, sd.Product.SKU })
+                .Select(g => new
+                {
+                    ProductId = g.Key.ProductId,
+                    ProductName = g.Key.Name,
+                    SKU = g.Key.SKU,
+                    QuantitySold = g.Sum(x => x.Quantity),
+                    TotalRevenue = g.Sum(x => x.Total)
+                });
+
+            var totalRevenue = await groupedQuery.SumAsync(x => x.TotalRevenue);
+            var count = await groupedQuery.CountAsync();
+            var items = await groupedQuery
+                .OrderByDescending(x => x.TotalRevenue)
+                .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
+                .Take(reportParams.PageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Data = items,
+                PageIndex = reportParams.PageIndex,
+                PageSize = reportParams.PageSize,
+                Count = count,
+                TotalRevenue = totalRevenue
             });
         }
 
-        [HttpGet("purchases")]
-        public async Task<ActionResult> GetPurchaseReport([FromQuery] ReportParams reportParams)
+        [HttpGet("sales/by-customer")]
+        public async Task<ActionResult> GetSalesByCustomer([FromQuery] ReportParams reportParams)
         {
-            var query = _context.PurchaseDetails
-                .Include(pd => pd.Product)
-                .Include(pd => pd.Purchase)
+            var salesQuery = _context.Sales
+                .Include(s => s.Customer)
                 .AsQueryable();
 
             if (reportParams.StartDate.HasValue)
+                salesQuery = salesQuery.Where(s => s.Date >= reportParams.StartDate.Value);
+            if (reportParams.EndDate.HasValue)
+                salesQuery = salesQuery.Where(s => s.Date <= reportParams.EndDate.Value);
+            if (!string.IsNullOrEmpty(reportParams.Search))
+                salesQuery = salesQuery.Where(s => s.Customer.Name.Contains(reportParams.Search));
+            if (reportParams.CustomerId.HasValue)
+                salesQuery = salesQuery.Where(s => s.CustomerId == reportParams.CustomerId.Value);
+
+            var grouped = await salesQuery
+                .GroupBy(s => new { s.CustomerId, CustomerName = s.Customer != null ? s.Customer.Name : "Walk-in Customer" })
+                .Select(g => new
+                {
+                    CustomerId = g.Key.CustomerId,
+                    CustomerName = g.Key.CustomerName,
+                    InvoiceCount = g.Count(),
+                    TotalAmount = g.Sum(x => x.TotalAmount),
+                    PaidAmount = g.Sum(x => x.PaidAmount),
+                    DueAmount = g.Sum(x => x.DueAmount)
+                })
+                .OrderByDescending(x => x.TotalAmount)
+                .ToListAsync();
+
+            return Ok(new
             {
-                query = query.Where(pd => pd.Purchase.Date >= reportParams.StartDate.Value);
-            }
+                Data = grouped.Skip((reportParams.PageIndex - 1) * reportParams.PageSize).Take(reportParams.PageSize).ToList(),
+                PageIndex = reportParams.PageIndex,
+                PageSize = reportParams.PageSize,
+                Count = grouped.Count,
+                TotalValue = grouped.Sum(x => x.TotalAmount),
+                TotalPaid = grouped.Sum(x => x.PaidAmount),
+                TotalDue = grouped.Sum(x => x.DueAmount)
+            });
+        }
+
+        [HttpGet("purchases-summary")]
+        public async Task<ActionResult> GetPurchasesSummary([FromQuery] ReportParams reportParams)
+        {
+            var query = _context.Purchases
+                .Include(p => p.Supplier)
+                .AsQueryable();
+
+            if (reportParams.StartDate.HasValue)
+                query = query.Where(p => p.Date >= reportParams.StartDate.Value);
 
             if (reportParams.EndDate.HasValue)
-            {
-                query = query.Where(pd => pd.Purchase.Date <= reportParams.EndDate.Value);
-            }
+                query = query.Where(p => p.Date <= reportParams.EndDate.Value);
 
             if (!string.IsNullOrEmpty(reportParams.Search))
-            {
-                query = query.Where(pd => pd.Product.Name.Contains(reportParams.Search) || pd.Product.SKU.Contains(reportParams.Search));
-            }
+                query = query.Where(p => p.PurchaseNo.Contains(reportParams.Search));
 
-            if (reportParams.ProductId.HasValue)
-            {
-                query = query.Where(pd => pd.ProductId == reportParams.ProductId.Value);
-            }
+            if (reportParams.SupplierId.HasValue)
+                query = query.Where(p => p.SupplierId == reportParams.SupplierId.Value);
 
-            var totalValue = await query.SumAsync(pd => pd.Total);
+            if (!string.IsNullOrEmpty(reportParams.PaymentStatus))
+                query = query.Where(p => p.PaymentStatus == reportParams.PaymentStatus);
+
             var count = await query.CountAsync();
+            var totalValue = await query.SumAsync(p => p.TotalAmount);
+            var totalPaid = await query.SumAsync(p => p.PaidAmount);
+            var totalDue = await query.SumAsync(p => p.DueAmount);
 
             var items = await query
-                .OrderByDescending(pd => pd.Purchase.Date)
+                .OrderByDescending(p => p.Date)
                 .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
                 .Take(reportParams.PageSize)
-                .Select(pd => new
+                .Select(p => new
                 {
-                    pd.Id,
-                    pd.PurchaseId,
-                    pd.Purchase.PurchaseNo,
-                    pd.Purchase.Date,
-                    pd.ProductId,
-                    ProductName = pd.Product.Name,
-                    ProductSKU = pd.Product.SKU,
-                    pd.Quantity,
-                    UnitCost = pd.UnitCost,
-                    pd.Total
+                    p.Id,
+                    p.PurchaseNo,
+                    p.Date,
+                    p.SupplierId,
+                    SupplierName = p.Supplier != null ? p.Supplier.Name : "Unknown Supplier",
+                    p.TotalAmount,
+                    p.PaidAmount,
+                    p.DueAmount,
+                    p.PaymentStatus
                 })
                 .ToListAsync();
 
@@ -175,7 +249,178 @@ namespace AccountingInventory.API.Controllers
                 PageIndex = reportParams.PageIndex,
                 PageSize = reportParams.PageSize,
                 Count = count,
-                TotalValue = totalValue
+                TotalValue = totalValue,
+                TotalPaid = totalPaid,
+                TotalDue = totalDue
+            });
+        }
+        [HttpGet("purchases/by-product")]
+        public async Task<ActionResult> GetPurchasesByProduct([FromQuery] ReportParams reportParams)
+        {
+            var query = _context.PurchaseDetails.AsQueryable();
+
+            if (reportParams.StartDate.HasValue)
+                query = query.Where(pd => pd.Purchase.Date >= reportParams.StartDate.Value);
+            if (reportParams.EndDate.HasValue)
+                query = query.Where(pd => pd.Purchase.Date <= reportParams.EndDate.Value);
+            if (!string.IsNullOrEmpty(reportParams.Search))
+                query = query.Where(pd => pd.Product.Name.Contains(reportParams.Search));
+            if (reportParams.ProductId.HasValue)
+                query = query.Where(pd => pd.ProductId == reportParams.ProductId.Value);
+
+            var groupedQuery = query
+                .GroupBy(pd => new { pd.ProductId, pd.Product.Name, pd.Product.SKU })
+                .Select(g => new
+                {
+                    ProductId = g.Key.ProductId,
+                    ProductName = g.Key.Name,
+                    SKU = g.Key.SKU,
+                    QuantityPurchased = g.Sum(x => x.Quantity),
+                    TotalCost = g.Sum(x => x.Total)
+                });
+
+            var totalCost = await groupedQuery.SumAsync(x => x.TotalCost);
+            var count = await groupedQuery.CountAsync();
+            var items = await groupedQuery
+                .OrderByDescending(x => x.TotalCost)
+                .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
+                .Take(reportParams.PageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Data = items,
+                PageIndex = reportParams.PageIndex,
+                PageSize = reportParams.PageSize,
+                Count = count,
+                TotalCost = totalCost
+            });
+        }
+
+        [HttpGet("purchases/by-supplier")]
+        public async Task<ActionResult> GetPurchasesBySupplier([FromQuery] ReportParams reportParams)
+        {
+            var purchasesQuery = _context.Purchases
+                .Include(p => p.Supplier)
+                .AsQueryable();
+
+            if (reportParams.StartDate.HasValue)
+                purchasesQuery = purchasesQuery.Where(p => p.Date >= reportParams.StartDate.Value);
+            if (reportParams.EndDate.HasValue)
+                purchasesQuery = purchasesQuery.Where(p => p.Date <= reportParams.EndDate.Value);
+            if (!string.IsNullOrEmpty(reportParams.Search))
+                purchasesQuery = purchasesQuery.Where(p => p.Supplier.Name.Contains(reportParams.Search));
+            if (reportParams.SupplierId.HasValue)
+                purchasesQuery = purchasesQuery.Where(p => p.SupplierId == reportParams.SupplierId.Value);
+
+            var grouped = await purchasesQuery
+                .GroupBy(p => new { p.SupplierId, SupplierName = p.Supplier != null ? p.Supplier.Name : "Unknown Supplier" })
+                .Select(g => new
+                {
+                    SupplierId = g.Key.SupplierId,
+                    SupplierName = g.Key.SupplierName,
+                    InvoiceCount = g.Count(),
+                    TotalAmount = g.Sum(x => x.TotalAmount),
+                    PaidAmount = g.Sum(x => x.PaidAmount),
+                    DueAmount = g.Sum(x => x.DueAmount)
+                })
+                .OrderByDescending(x => x.TotalAmount)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Data = grouped.Skip((reportParams.PageIndex - 1) * reportParams.PageSize).Take(reportParams.PageSize).ToList(),
+                PageIndex = reportParams.PageIndex,
+                PageSize = reportParams.PageSize,
+                Count = grouped.Count,
+                TotalValue = grouped.Sum(x => x.TotalAmount),
+                TotalPaid = grouped.Sum(x => x.PaidAmount),
+                TotalDue = grouped.Sum(x => x.DueAmount)
+            });
+        }
+
+        [HttpGet("profit/by-product")]
+        public async Task<ActionResult> GetProfitByProduct([FromQuery] ReportParams reportParams)
+        {
+            var salesQuery = _context.SaleDetails
+                .Include(sd => sd.Product)
+                .Include(sd => sd.Sale)
+                .AsQueryable();
+
+            if (reportParams.StartDate.HasValue)
+                salesQuery = salesQuery.Where(sd => sd.Sale.Date >= reportParams.StartDate.Value);
+
+            if (reportParams.EndDate.HasValue)
+                salesQuery = salesQuery.Where(sd => sd.Sale.Date <= reportParams.EndDate.Value);
+
+            if (!string.IsNullOrEmpty(reportParams.Search))
+                salesQuery = salesQuery.Where(sd => sd.Product.Name.Contains(reportParams.Search));
+
+            var grouped = await salesQuery
+                .GroupBy(sd => new { sd.ProductId, sd.Product.Name, sd.Product.SKU, sd.Product.PurchasePrice })
+                .Select(g => new
+                {
+                    ProductId = g.Key.ProductId,
+                    ProductName = g.Key.Name,
+                    SKU = g.Key.SKU,
+                    QuantitySold = g.Sum(x => x.Quantity),
+                    TotalRevenue = g.Sum(x => x.Total),
+                    UnitCost = g.Key.PurchasePrice,
+                    TotalCost = g.Sum(x => x.Quantity) * g.Key.PurchasePrice,
+                    TotalProfit = g.Sum(x => x.Total) - (g.Sum(x => x.Quantity) * g.Key.PurchasePrice)
+                })
+                .OrderByDescending(x => x.TotalProfit)
+                .ToListAsync();
+
+            var count = grouped.Count;
+            var items = grouped.Skip((reportParams.PageIndex - 1) * reportParams.PageSize).Take(reportParams.PageSize).ToList();
+            var totalProfit = grouped.Sum(x => x.TotalProfit);
+
+            return Ok(new
+            {
+                Data = items,
+                PageIndex = reportParams.PageIndex,
+                PageSize = reportParams.PageSize,
+                Count = count,
+                TotalProfit = totalProfit
+            });
+        }
+
+        [HttpGet("profit/margins")]
+        public async Task<ActionResult> GetProfitMargins([FromQuery] ReportParams reportParams)
+        {
+            var query = _context.Products.AsQueryable();
+
+            if (!string.IsNullOrEmpty(reportParams.Search))
+                query = query.Where(p => p.Name.Contains(reportParams.Search) || p.SKU.Contains(reportParams.Search));
+
+            if (reportParams.ProductId.HasValue)
+                query = query.Where(p => p.Id == reportParams.ProductId.Value);
+
+            var count = await query.CountAsync();
+
+            var items = await query
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Name,
+                    p.SKU,
+                    p.PurchasePrice,
+                    p.SalePrice,
+                    ProfitPerUnit = p.SalePrice - p.PurchasePrice,
+                    Margin = p.SalePrice > 0 ? ((p.SalePrice - p.PurchasePrice) / p.SalePrice) * 100 : 0
+                })
+                .OrderByDescending(p => p.Margin)
+                .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
+                .Take(reportParams.PageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Data = items,
+                PageIndex = reportParams.PageIndex,
+                PageSize = reportParams.PageSize,
+                Count = count
             });
         }
 

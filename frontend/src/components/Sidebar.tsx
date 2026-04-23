@@ -39,12 +39,7 @@ export default function Sidebar() {
 
     return (
         <aside className="w-64 bg-slate-900 text-slate-300 h-screen fixed left-0 top-0 flex flex-col border-r border-slate-800">
-            <div className="p-6 text-center">
-                <h1 className="text-3xl font-black text-white tracking-tighter italic">AZU<span className="text-blue-500">YA</span></h1>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Inventory & Accounting Management</p>
-            </div>
-
-            <nav className="flex-1 px-4 space-y-2 mt-4">
+            <nav className="flex-1 px-4 space-y-2 mt-6">
                 {filteredNavItems.map((item) => {
                     const Icon = (item as any).icon;
                     const isActive = pathname === item.href;

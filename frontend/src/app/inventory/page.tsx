@@ -64,6 +64,11 @@ export default function Inventory() {
     const [showBrandDialog, setShowBrandDialog] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
 
+    // Reset page index on search change
+    useEffect(() => {
+        setProductPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, [productSearch]);
+
     useEffect(() => {
         fetchData();
     }, [activeTab, productPagination.pageIndex, productPagination.pageSize, productSorting, productSearch]);

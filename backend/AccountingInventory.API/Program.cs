@@ -1,5 +1,6 @@
 using AccountingInventory.Infrastructure.Data;
 using AccountingInventory.Infrastructure.Repositories;
+using AccountingInventory.Infrastructure.Services;
 using AccountingInventory.Core.Interfaces;
 using AccountingInventory.Core.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -9,10 +10,17 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Security.Claims;
 
+using System.Text.Json.Serialization;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -59,6 +67,7 @@ builder.Services.AddAuthorization(options => {
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IAccountingService, AccountingService>();
 
 builder.Services.AddCors(options =>
 {

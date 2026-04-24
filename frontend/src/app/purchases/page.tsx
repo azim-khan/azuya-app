@@ -9,7 +9,7 @@ import PurchaseForm from '@/components/purchases/PurchaseForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, SortingState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -42,46 +42,52 @@ interface Purchase {
     paidAmount: number;
     dueAmount: number;
     paymentStatus: string;
-    items: any[];
+    items?: any[];
 }
 
+import { useDataTable } from '@/hooks/use-data-table';
+
 export default function PurchasesPage() {
-    const [purchases, setPurchases] = useState<Purchase[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [status, setStatus] = useState('All');
+    // Dialog and ID states
     const [purchaseToDelete, setPurchaseToDelete] = useState<number | null>(null);
     const [viewingPurchaseId, setViewingPurchaseId] = useState<number | null>(null);
     const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
+    // Filters (Local state for inputs)
+    const [search, setSearch] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [status, setStatus] = useState('All');
+
     const { toast } = useToast();
 
-    const fetchPurchases = async () => {
-        try {
-            setLoading(true);
-            const params = new URLSearchParams();
-            if (startDate) params.append('startDate', startDate);
-            if (endDate) params.append('endDate', endDate);
-            if (search) params.append('search', search);
-            if (status !== 'All') params.append('status', status);
-
-            const queryString = params.toString();
-            const res = await api.get(`/purchases${queryString ? `?${queryString}` : ''}`);
-            setPurchases(res.data || []);
-        } catch (error) {
-            console.error('Failed to fetch purchases:', error);
-            toast({ title: 'Error', description: 'Could not load purchases data.', variant: 'destructive' });
-        } finally {
-            setLoading(false);
+    // Use our new generic hook
+    const {
+        data: purchases,
+        loading,
+        totalCount,
+        pagination,
+        setPagination,
+        sorting,
+        setSorting,
+        setFilters,
+        refresh: fetchPurchases
+    } = useDataTable<Purchase>({
+        endpoint: '/purchases',
+        initialFilters: {
+            search: '',
+            startDate: '',
+            endDate: '',
+            status: 'All'
         }
-    };
+    });
 
+    // Update filters in the hook when local filter states change
     useEffect(() => {
-        fetchPurchases();
-    }, [startDate, endDate, status]);
+        setFilters({ search, startDate, endDate, status });
+    }, [startDate, endDate, status, setFilters]); // search is triggered by Enter, so not here
 
     const handlePurchaseSuccess = () => {
         setIsDialogOpen(false);
@@ -92,7 +98,7 @@ export default function PurchasesPage() {
         if (!purchaseToDelete) return;
         try {
             await api.delete(`/purchases/${purchaseToDelete}`);
-            setPurchases(purchases.filter(p => p.id !== purchaseToDelete));
+            fetchPurchases();
             toast({ title: 'Success', description: 'Purchase deleted and stock adjusted.' });
         } catch (error) {
             console.error('Delete failed:', error);
@@ -116,17 +122,25 @@ export default function PurchasesPage() {
         {
             accessorKey: 'supplierName',
             header: 'Supplier',
-            cell: ({ row }) => row.getValue('supplierName'),
         },
         {
             accessorKey: 'totalAmount',
-            header: 'Total Amount',
+            header: 'Total',
             cell: ({ row }) => <span className="font-semibold text-slate-900">৳{row.original.totalAmount.toLocaleString()}</span>,
         },
         {
-            id: 'items_count',
-            header: 'Items',
-            cell: ({ row }) => <span>{row.original.items?.length || 0} Products</span>,
+            accessorKey: 'paidAmount',
+            header: 'Paid',
+            cell: ({ row }) => <span className="text-emerald-600">৳{row.original.paidAmount.toLocaleString()}</span>,
+        },
+        {
+            accessorKey: 'dueAmount',
+            header: 'Due',
+            cell: ({ row }) => (
+                <span className={row.original.dueAmount > 0 ? "text-rose-600 font-medium" : "text-slate-400"}>
+                    ৳{row.original.dueAmount.toLocaleString()}
+                </span>
+            ),
         },
         {
             accessorKey: 'paymentStatus',
@@ -234,7 +248,7 @@ export default function PurchasesPage() {
                             className="pl-10 h-10 border-slate-200 focus:ring-slate-900"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && fetchPurchases()}
+                            onKeyDown={(e) => e.key === 'Enter' && setFilters(prev => ({ ...prev, search }))}
                         />
                     </div>
                 </div>
@@ -278,6 +292,7 @@ export default function PurchasesPage() {
                         setEndDate('');
                         setSearch('');
                         setStatus('All');
+                        setFilters({ search: '', startDate: '', endDate: '', status: 'All' });
                     }}
                 >
                     Clear
@@ -285,7 +300,17 @@ export default function PurchasesPage() {
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                <DataTable columns={columns} data={purchases} loading={loading} />
+                <DataTable 
+                    columns={columns} 
+                    data={purchases} 
+                    loading={loading} 
+                    sorting={sorting}
+                    setSorting={setSorting}
+                    manualSorting={true}
+                    pagination={pagination}
+                    setPagination={setPagination}
+                    totalCount={totalCount}
+                />
             </div>
 
             <AlertDialog open={purchaseToDelete !== null} onOpenChange={() => setPurchaseToDelete(null)}>

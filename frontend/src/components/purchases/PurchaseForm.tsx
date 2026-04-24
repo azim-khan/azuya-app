@@ -33,6 +33,8 @@ export default function PurchaseForm({ purchaseId, onSuccess, onCancel }: Purcha
     const [paidAmount, setPaidAmount] = useState<number | string>(0);
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [products, setProducts] = useState<any[]>([]);
+    const [accounts, setAccounts] = useState<any[]>([]);
+    const [paymentAccountId, setPaymentAccountId] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -44,15 +46,23 @@ export default function PurchaseForm({ purchaseId, onSuccess, onCancel }: Purcha
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const [prodRes, suppRes, nextNoRes] = await Promise.all([
-                    api.get('/products'),
-                    api.get('/suppliers'),
-                    !purchaseId ? api.get('/purchases/next-purchase-number') : Promise.resolve({ data: { purchaseNo: '' } })
+                const [prodRes, suppRes, nextNoRes, accRes] = await Promise.all([
+                    api.get('/products?pageSize=1000'),
+                    api.get('/suppliers?pageSize=1000'),
+                    !purchaseId ? api.get('/purchases/next-purchase-number') : Promise.resolve({ data: { purchaseNo: '' } }),
+                    api.get('/accounts?pageSize=1000')
                 ]);
 
                 const productList = prodRes.data?.data || prodRes.data || [];
+                const accountList = (accRes.data?.data || accRes.data || []).filter((a: any) => a.name === 'Cash' || a.name === 'Bank');
+                
                 setProducts(productList);
-                setSuppliers(suppRes.data || []);
+                setSuppliers(suppRes.data?.data || suppRes.data || []);
+                setAccounts(accountList);
+
+                // Default to Cash account
+                const cashAcc = accountList.find((a: any) => a.name === 'Cash');
+                if (cashAcc) setPaymentAccountId(cashAcc.id.toString());
                 if (!purchaseId) setPurchaseNo(nextNoRes.data.purchaseNo);
 
                 if (purchaseId) {
@@ -140,6 +150,7 @@ export default function PurchaseForm({ purchaseId, onSuccess, onCancel }: Purcha
                 date,
                 supplierId: parseInt(supplierId),
                 paidAmount: parseFloat(paidAmount.toString()) || 0,
+                paymentAccountId: parseInt(paymentAccountId),
                 items: items.map(i => ({
                     productId: i.productId,
                     quantity: i.quantity,
@@ -370,6 +381,22 @@ export default function PurchaseForm({ purchaseId, onSuccess, onCancel }: Purcha
                                     <div className={`h-full ${dueAmount > 0 ? 'bg-rose-500' : 'bg-emerald-500'} w-full animate-pulse`}></div>
                                 </div>
                             </div>
+                            
+                            {parseFloat(paidAmount.toString()) > 0 && (
+                                <div className="space-y-2 mt-4">
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Payment Account</label>
+                                    <Select value={paymentAccountId} onValueChange={setPaymentAccountId}>
+                                        <SelectTrigger className="h-10 bg-slate-800 border-slate-700 text-white">
+                                            <SelectValue placeholder="Select Account" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {accounts.map((acc: any) => (
+                                                <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

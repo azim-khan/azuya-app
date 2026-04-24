@@ -40,6 +40,25 @@ namespace AccountingInventory.Infrastructure.Data
                     await userManager.AddToRoleAsync(user, "SuperAdmin");
                 }
             }
+
+            // Seed System Accounts
+            if (!await context.Accounts.AnyAsync())
+            {
+                var systemAccounts = new List<Account>
+                {
+                    new Account { Name = "Cash", Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = "Bank", Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = "Sales", Type = AccountType.Income, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = "Purchases", Type = AccountType.Expense, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = "Inventory", Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = "Expense", Type = AccountType.Expense, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = "Accounts Receivable", Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = "Accounts Payable", Type = AccountType.Liability, IsSystemAccount = true, Balance = 0 },
+                };
+
+                context.Accounts.AddRange(systemAccounts);
+                await context.SaveChangesAsync();
+            }
         }
     }
 }

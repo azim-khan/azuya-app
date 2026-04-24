@@ -1,6 +1,8 @@
 using AccountingInventory.Core.DTOs;
 using AccountingInventory.Core.Entities;
+using AccountingInventory.Core.Interfaces;
 using AccountingInventory.Infrastructure.Data;
+using AccountingInventory.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,47 +13,48 @@ namespace AccountingInventory.API.Controllers
     public class SalesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IAccountingService _accountingService;
 
-        public SalesController(ApplicationDbContext context)
+        public SalesController(ApplicationDbContext context, IAccountingService accountingService)
         {
             _context = context;
+            _accountingService = accountingService;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<SaleDto>>> GetSales(
-            [FromQuery] DateTime? startDate, 
-            [FromQuery] DateTime? endDate,
-            [FromQuery] string? search,
-            [FromQuery] string? status)
+        public async Task<ActionResult<Pagination<SaleDto>>> GetSales([FromQuery] ReportParams reportParams)
         {
             var query = _context.Sales
                 .Include(s => s.Customer)
                 .AsQueryable();
 
-            if (startDate.HasValue)
+            if (reportParams.StartDate.HasValue)
             {
-                var start = startDate.Value.Date;
+                var start = reportParams.StartDate.Value.Date;
                 query = query.Where(s => s.Date >= start);
             }
 
-            if (endDate.HasValue)
+            if (reportParams.EndDate.HasValue)
             {
-                var end = endDate.Value.Date.AddDays(1).AddTicks(-1);
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
                 query = query.Where(s => s.Date <= end);
             }
 
-            if (!string.IsNullOrEmpty(search))
+            if (!string.IsNullOrEmpty(reportParams.Search))
             {
-                query = query.Where(s => s.InvoiceNo.Contains(search) || (s.Customer != null && s.Customer.Name.Contains(search)));
+                query = query.Where(s => s.InvoiceNo.Contains(reportParams.Search) || (s.Customer != null && s.Customer.Name.Contains(reportParams.Search)));
             }
 
-            if (!string.IsNullOrEmpty(status))
+            if (!string.IsNullOrEmpty(reportParams.Status))
             {
-                query = query.Where(s => s.PaymentStatus == status);
+                query = query.Where(s => s.PaymentStatus == reportParams.Status);
             }
+
+            var count = await query.CountAsync();
 
             var sales = await query
-                .OrderByDescending(s => s.Date)
+                .ApplySorting(reportParams, "Date desc")
+                .ApplyPagination(reportParams)
                 .ToListAsync();
 
             var dtos = sales.Select(s => new SaleDto
@@ -67,9 +70,9 @@ namespace AccountingInventory.API.Controllers
                 PaidAmount = s.PaidAmount,
                 DueAmount = s.DueAmount,
                 PaymentStatus = s.PaymentStatus
-            });
+            }).ToList();
 
-            return Ok(dtos);
+            return Ok(new Pagination<SaleDto>(reportParams.PageIndex, reportParams.PageSize, count, dtos));
         }
 
         [HttpGet("{id}")]
@@ -170,6 +173,10 @@ namespace AccountingInventory.API.Controllers
                 _context.Sales.Add(sale);
                 await _context.SaveChangesAsync();
 
+                // Accounting Entry
+                await _accountingService.CreateSaleJournalEntryAsync(sale, dto.PaymentAccountId);
+                await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
 
                 return Ok(new { id = sale.Id });
@@ -247,6 +254,11 @@ namespace AccountingInventory.API.Controllers
                 else sale.PaymentStatus = "Due";
 
                 await _context.SaveChangesAsync();
+
+                // Accounting Entry
+                await _accountingService.UpdateSaleJournalEntryAsync(sale, dto.PaymentAccountId);
+                await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
 
                 return Ok(new { id = sale.Id });
@@ -279,6 +291,9 @@ namespace AccountingInventory.API.Controllers
                         product.StockQuantity += detail.Quantity;
                     }
                 }
+
+                // Accounting Entry
+                await _accountingService.DeleteJournalEntryByReferenceAsync(sale.InvoiceNo);
 
                 _context.Sales.Remove(sale);
                 await _context.SaveChangesAsync();

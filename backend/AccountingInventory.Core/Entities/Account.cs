@@ -23,17 +23,33 @@ namespace AccountingInventory.Core.Entities
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal Balance { get; set; }
+
+        public bool IsSystemAccount { get; set; }
     }
 
-    public class Transaction : BaseEntity
+    public class JournalEntry : BaseEntity
     {
-        public int AccountId { get; set; }
-        public Account? Account { get; set; }
-
         public DateTime Date { get; set; } = DateTime.UtcNow;
-        
+
         [MaxLength(200)]
         public string Description { get; set; } = string.Empty;
+
+        [MaxLength(50)]
+        public string ReferenceNo { get; set; } = string.Empty;
+
+        [MaxLength(50)]
+        public string SourceType { get; set; } = string.Empty; // Sale, Purchase, Expense
+
+        public List<LedgerEntry> Entries { get; set; } = new();
+    }
+
+    public class LedgerEntry : BaseEntity
+    {
+        public int JournalEntryId { get; set; }
+        public JournalEntry? JournalEntry { get; set; }
+
+        public int AccountId { get; set; }
+        public Account? Account { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal Debit { get; set; }

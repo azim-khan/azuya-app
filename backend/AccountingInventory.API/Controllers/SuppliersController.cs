@@ -24,9 +24,9 @@ namespace AccountingInventory.API.Controllers
         /// Gets all suppliers.
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IReadOnlyList<Supplier>>> GetSuppliers()
+        public async Task<ActionResult<Pagination<Supplier>>> GetSuppliers([FromQuery] BaseSpecParams specParams)
         {
-            return Ok(await _repository.GetAllAsync());
+            return Ok(await _repository.ListAsync(specParams, null, "Name"));
         }
 
         /// <summary>

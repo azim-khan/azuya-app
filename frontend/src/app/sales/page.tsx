@@ -7,7 +7,7 @@ import SaleDetailsDialog from '@/components/sales/SaleDetailsDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, SortingState } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CustomDatePicker } from '@/components/ui/custom-date-picker';
@@ -44,43 +44,49 @@ interface Sale {
     paymentStatus: string;
 }
 
+import { useDataTable } from '@/hooks/use-data-table';
+
 export default function SalesPage() {
-    const [sales, setSales] = useState<Sale[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [status, setStatus] = useState('All');
+    // Dialog and ID states
     const [saleToDelete, setSaleToDelete] = useState<number | null>(null);
     const [viewingSaleId, setViewingSaleId] = useState<number | null>(null);
     const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+    
+    // Filters (Local state for inputs)
+    const [search, setSearch] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [status, setStatus] = useState('All');
+
     const { toast } = useToast();
 
-    const fetchSales = async () => {
-        try {
-            setLoading(true);
-            const params = new URLSearchParams();
-            if (startDate) params.append('startDate', startDate);
-            if (endDate) params.append('endDate', endDate);
-            if (search) params.append('search', search);
-            if (status !== 'All') params.append('status', status);
-
-            const queryString = params.toString();
-            const res = await api.get(`/sales${queryString ? `?${queryString}` : ''}`);
-            setSales(res.data || []);
-        } catch (error) {
-            console.error('Failed to fetch sales:', error);
-            toast({ title: 'Error', description: 'Could not load sales data.', variant: 'destructive' });
-        } finally {
-            setLoading(false);
+    // Use our new generic hook
+    const {
+        data: sales,
+        loading,
+        totalCount,
+        pagination,
+        setPagination,
+        sorting,
+        setSorting,
+        setFilters,
+        refresh: fetchSales
+    } = useDataTable<Sale>({
+        endpoint: '/sales',
+        initialFilters: {
+            search: '',
+            startDate: '',
+            endDate: '',
+            status: 'All'
         }
-    };
+    });
 
+    // Update filters in the hook when local filter states change
     useEffect(() => {
-        fetchSales();
-    }, [startDate, endDate, status]);
+        setFilters({ search, startDate, endDate, status });
+    }, [startDate, endDate, status, setFilters]); // search is triggered by Enter, so not here
 
     const handleSaleSuccess = () => {
         setIsDialogOpen(false);
@@ -91,7 +97,7 @@ export default function SalesPage() {
         if (!saleToDelete) return;
         try {
             await api.delete(`/sales/${saleToDelete}`);
-            setSales(sales.filter(s => s.id !== saleToDelete));
+            fetchSales();
             toast({ title: 'Success', description: 'Sale deleted and stock restored.' });
         } catch (error) {
             console.error('Delete failed:', error);
@@ -243,7 +249,7 @@ export default function SalesPage() {
                             className="pl-10 h-10 border-slate-200 focus:ring-slate-900"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && fetchSales()}
+                            onKeyDown={(e) => e.key === 'Enter' && setFilters(prev => ({ ...prev, search }))}
                         />
                     </div>
                 </div>
@@ -287,6 +293,7 @@ export default function SalesPage() {
                         setEndDate('');
                         setSearch('');
                         setStatus('All');
+                        setFilters({ search: '', startDate: '', endDate: '', status: 'All' });
                     }}
                 >
                     Clear
@@ -294,7 +301,17 @@ export default function SalesPage() {
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                <DataTable columns={columns} data={sales} loading={loading} />
+                <DataTable 
+                    columns={columns} 
+                    data={sales} 
+                    loading={loading} 
+                    sorting={sorting}
+                    setSorting={setSorting}
+                    manualSorting={true}
+                    pagination={pagination}
+                    setPagination={setPagination}
+                    totalCount={totalCount}
+                />
             </div>
 
             <AlertDialog open={saleToDelete !== null} onOpenChange={() => setSaleToDelete(null)}>

@@ -104,7 +104,7 @@ export function AccountDialog({ open, onOpenChange, accountToEdit, onSave }: Acc
                                 <FormItem>
                                     <FormLabel>Account Name</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. Cash, Sales Revenue" {...field} />
+                                        <Input placeholder="e.g. Cash, Sales Revenue" {...field} disabled={accountToEdit?.isSystemAccount} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -116,7 +116,7 @@ export function AccountDialog({ open, onOpenChange, accountToEdit, onSave }: Acc
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Account Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={accountToEdit?.isSystemAccount}>
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select Type" />

@@ -2,6 +2,7 @@ using AccountingInventory.Core.DTOs;
 using AccountingInventory.Core.Entities;
 using AccountingInventory.Core.Interfaces;
 using AccountingInventory.Infrastructure.Data;
+using AccountingInventory.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,21 +13,19 @@ namespace AccountingInventory.API.Controllers
     public class PurchasesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IAccountingService _accountingService;
 
-        public PurchasesController(ApplicationDbContext context)
+        public PurchasesController(ApplicationDbContext context, IAccountingService accountingService)
         {
             _context = context;
+            _accountingService = accountingService;
         }
 
         /// <summary>
         /// Gets all purchases.
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetPurchases(
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
-            [FromQuery] string? search,
-            [FromQuery] string? status)
+        public async Task<ActionResult<Pagination<PurchaseDto>>> GetPurchases([FromQuery] ReportParams reportParams)
         {
             var query = _context.Purchases
                 .Include(p => p.Supplier)
@@ -34,30 +33,33 @@ namespace AccountingInventory.API.Controllers
                 .ThenInclude(pd => pd.Product)
                 .AsQueryable();
 
-            if (startDate.HasValue)
+            if (reportParams.StartDate.HasValue)
             {
-                var start = startDate.Value.Date;
+                var start = reportParams.StartDate.Value.Date;
                 query = query.Where(p => p.Date >= start);
             }
 
-            if (endDate.HasValue)
+            if (reportParams.EndDate.HasValue)
             {
-                var end = endDate.Value.Date.AddDays(1).AddTicks(-1);
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
                 query = query.Where(p => p.Date <= end);
             }
 
-            if (!string.IsNullOrEmpty(search))
+            if (!string.IsNullOrEmpty(reportParams.Search))
             {
-                query = query.Where(p => p.PurchaseNo.Contains(search) || (p.Supplier != null && p.Supplier.Name.Contains(search)));
+                query = query.Where(p => p.PurchaseNo.Contains(reportParams.Search) || (p.Supplier != null && p.Supplier.Name.Contains(reportParams.Search)));
             }
 
-            if (!string.IsNullOrEmpty(status))
+            if (!string.IsNullOrEmpty(reportParams.Status))
             {
-                query = query.Where(p => p.PaymentStatus == status);
+                query = query.Where(p => p.PaymentStatus == reportParams.Status);
             }
+
+            var count = await query.CountAsync();
 
             var purchases = await query
-                .OrderByDescending(p => p.Date)
+                .ApplySorting(reportParams, "Date desc")
+                .ApplyPagination(reportParams)
                 .ToListAsync();
 
             var dtos = purchases.Select(p => new PurchaseDto
@@ -70,18 +72,10 @@ namespace AccountingInventory.API.Controllers
                 TotalAmount = p.TotalAmount,
                 PaidAmount = p.PaidAmount,
                 DueAmount = p.DueAmount,
-                PaymentStatus = p.PaymentStatus,
-                Items = p.PurchaseDetails.Select(pd => new PurchaseDetailDto
-                {
-                    ProductId = pd.ProductId,
-                    ProductName = pd.Product?.Name ?? "",
-                    Quantity = pd.Quantity,
-                    UnitCost = pd.UnitCost,
-                    Total = pd.Total
-                }).ToList()
-            });
+                PaymentStatus = p.PaymentStatus
+            }).ToList();
 
-            return Ok(dtos);
+            return Ok(new Pagination<PurchaseDto>(reportParams.PageIndex, reportParams.PageSize, count, dtos));
         }
 
         [HttpGet("{id}")]
@@ -165,6 +159,10 @@ namespace AccountingInventory.API.Controllers
                 _context.Purchases.Add(purchase);
                 await _context.SaveChangesAsync();
 
+                // Accounting Entry
+                await _accountingService.CreatePurchaseJournalEntryAsync(purchase, dto.PaymentAccountId);
+                await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
 
                 return Ok(new { id = purchase.Id });
@@ -234,6 +232,11 @@ namespace AccountingInventory.API.Controllers
                 else purchase.PaymentStatus = "Due";
 
                 await _context.SaveChangesAsync();
+
+                // Accounting Entry
+                await _accountingService.UpdatePurchaseJournalEntryAsync(purchase, dto.PaymentAccountId);
+                await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
 
                 return Ok(new { id = purchase.Id });
@@ -266,6 +269,9 @@ namespace AccountingInventory.API.Controllers
                         product.StockQuantity -= detail.Quantity;
                     }
                 }
+
+                // Accounting Entry
+                await _accountingService.DeleteJournalEntryByReferenceAsync(purchase.PurchaseNo);
 
                 _context.Purchases.Remove(purchase);
                 await _context.SaveChangesAsync();

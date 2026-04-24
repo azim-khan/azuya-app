@@ -24,6 +24,7 @@ namespace AccountingInventory.Core.DTOs
         [Required]
         public int SupplierId { get; set; }
         public decimal PaidAmount { get; set; }
+        public int PaymentAccountId { get; set; }
         public List<CreatePurchaseDetailDto> Items { get; set; } = new();
     }
 

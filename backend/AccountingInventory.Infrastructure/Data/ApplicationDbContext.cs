@@ -19,7 +19,8 @@ namespace AccountingInventory.Infrastructure.Data
         public DbSet<Purchase> Purchases { get; set; }
         public DbSet<PurchaseDetail> PurchaseDetails { get; set; }
         public DbSet<Account> Accounts { get; set; }
-        public DbSet<Transaction> Transactions { get; set; }
+        public DbSet<JournalEntry> JournalEntries { get; set; }
+        public DbSet<LedgerEntry> LedgerEntries { get; set; }
         public DbSet<CompanyInfo> CompanyInfos { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

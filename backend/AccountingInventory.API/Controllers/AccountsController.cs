@@ -1,6 +1,8 @@
 using AccountingInventory.Core.Entities;
 using AccountingInventory.Core.Interfaces;
 using AccountingInventory.Infrastructure.Data;
+using AccountingInventory.Core.DTOs;
+using AccountingInventory.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,11 +20,24 @@ namespace AccountingInventory.API.Controllers
             _repository = repository;
             _context = context;
         }
-
         [HttpGet]
-        public async Task<ActionResult<IReadOnlyList<Account>>> GetAccounts()
+        public async Task<ActionResult<Pagination<Account>>> GetAccounts([FromQuery] ReportParams reportParams)
         {
-            return Ok(await _repository.GetAllAsync());
+            var query = _context.Accounts.AsQueryable();
+
+            if (!string.IsNullOrEmpty(reportParams.Search))
+            {
+                query = query.Where(a => a.Name.Contains(reportParams.Search));
+            }
+
+            var count = await query.CountAsync();
+
+            var accounts = await query
+                .ApplySorting(reportParams, "Name asc")
+                .ApplyPagination(reportParams)
+                .ToListAsync();
+
+            return Ok(new Pagination<Account>(reportParams.PageIndex, reportParams.PageSize, count, accounts));
         }
 
         [HttpPost]
@@ -32,47 +47,58 @@ namespace AccountingInventory.API.Controllers
             return CreatedAtAction(nameof(GetAccounts), new { id = account.Id }, account);
         }
 
-        /// <summary>
-        /// Adds a manual transaction (Journal Entry).
-        /// </summary>
-        [HttpPost("transaction")]
-        public async Task<IActionResult> AddTransaction(Transaction transaction)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateAccount(int id, Account account)
         {
-            var account = await _repository.GetByIdAsync(transaction.AccountId);
-            if (account == null) return NotFound("Account not found");
-
-            transaction.Date = DateTime.UtcNow;
-            _context.Transactions.Add(transaction);
-
-            // Update balance based on Debit/Credit
-            // Asset/Expense: Debit increases, Credit decreases
-            // Liability/Income/Equity: Credit increases, Debit decreases
+            var existing = await _context.Accounts.FindAsync(id);
+            if (existing == null) return NotFound();
             
-            bool isDebitIncrease = account.Type == AccountType.Asset || account.Type == AccountType.Expense;
-
-            if (isDebitIncrease)
+            if (existing.IsSystemAccount)
             {
-                account.Balance += transaction.Debit;
-                account.Balance -= transaction.Credit;
-            }
-            else
-            {
-                account.Balance += transaction.Credit;
-                account.Balance -= transaction.Debit;
+                // Only allow updating balance manually if needed? 
+                // Usually system account names/types are locked.
+                return BadRequest("System accounts cannot be renamed or retyped.");
             }
 
+            existing.Name = account.Name;
+            existing.Type = account.Type;
+            
             await _context.SaveChangesAsync();
-            return Ok(transaction);
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteAccount(int id)
+        {
+            var account = await _context.Accounts.FindAsync(id);
+            if (account == null) return NotFound();
+            
+            if (account.IsSystemAccount) return BadRequest("System accounts cannot be deleted.");
+            
+            _context.Accounts.Remove(account);
+            await _context.SaveChangesAsync();
+            return NoContent();
         }
 
         [HttpGet("{id}/ledger")]
-        public async Task<ActionResult<IEnumerable<Transaction>>> GetLedger(int id)
+        public async Task<ActionResult<IEnumerable<LedgerEntry>>> GetLedger(int id)
         {
-            var transactions = await _context.Transactions
-                .Where(t => t.AccountId == id)
-                .OrderByDescending(t => t.Date)
+            var entries = await _context.LedgerEntries
+                .Include(l => l.JournalEntry)
+                .Where(l => l.AccountId == id)
+                .OrderByDescending(l => l.JournalEntry!.Date)
                 .ToListAsync();
-            return Ok(transactions);
+            return Ok(entries);
+        }
+
+        [HttpGet("journal")]
+        public async Task<ActionResult<IEnumerable<JournalEntry>>> GetJournal()
+        {
+            return Ok(await _context.JournalEntries
+                .Include(j => j.Entries)
+                .ThenInclude(e => e.Account)
+                .OrderByDescending(j => j.Date)
+                .ToListAsync());
         }
     }
 }

@@ -73,6 +73,7 @@
 
 .rounded-sm,
 .rounded-md,
-.rounded-lg {
+.rounded-lg,
+.rounded-xl {
   overflow: hidden;
 }

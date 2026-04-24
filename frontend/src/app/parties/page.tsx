@@ -6,14 +6,6 @@ import { Plus, Search, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
     Tabs,
     TabsContent,
     TabsList,
@@ -21,33 +13,33 @@ import {
 } from '@/components/ui/tabs';
 import { PartyDialog } from '@/components/parties/PartyDialog';
 import { useToast } from '@/hooks/use-toast';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+
+import { useDataTable } from '@/hooks/use-data-table';
 
 export default function Parties() {
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState('customers');
-    const [parties, setParties] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-
+    
     // Dialog state
     const [showDialog, setShowDialog] = useState(false);
     const [editingParty, setEditingParty] = useState<any>(null);
 
-    useEffect(() => {
-        fetchParties();
-    }, [activeTab]);
-
-    const fetchParties = async () => {
-        setLoading(true);
-        try {
-            const endpoint = activeTab === 'customers' ? '/customers' : '/suppliers';
-            const res = await api.get(endpoint);
-            setParties(res.data);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Use our new generic hook
+    const {
+        data: parties,
+        loading,
+        totalCount,
+        pagination,
+        setPagination,
+        sorting,
+        setSorting,
+        refresh: fetchParties
+    } = useDataTable<any>({
+        endpoint: activeTab === 'customers' ? '/customers' : '/suppliers',
+        initialPageSize: 10
+    });
 
     const handleAdd = () => {
         setEditingParty(null);
@@ -103,41 +95,37 @@ export default function Parties() {
                             </Button>
                         </div>
                         <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Phone</TableHead>
-                                        <TableHead>Email</TableHead>
-                                        <TableHead>Address</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading ? (
-                                        <TableRow><TableCell colSpan={5} className="text-center h-24"><Loader2 className="animate-spin inline mr-2" /> Loading...</TableCell></TableRow>
-                                    ) : parties.length === 0 ? (
-                                        <TableRow><TableCell colSpan={5} className="text-center h-24">No {tab} found.</TableCell></TableRow>
-                                    ) : (
-                                        parties.map((party) => (
-                                            <TableRow key={party.id}>
-                                                <TableCell className="font-medium">{party.name}</TableCell>
-                                                <TableCell>{party.phone || '-'}</TableCell>
-                                                <TableCell>{party.email || '-'}</TableCell>
-                                                <TableCell className="max-w-[200px] truncate" title={party.address}>{party.address || '-'}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(party)}>
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(party.id)} className="text-rose-500 hover:text-rose-700 hover:bg-rose-50">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
+                            <DataTable
+                                columns={[
+                                    { accessorKey: 'name', header: 'Name' },
+                                    { accessorKey: 'phone', header: 'Phone' },
+                                    { accessorKey: 'email', header: 'Email' },
+                                    { accessorKey: 'address', header: 'Address', cell: ({ row }) => <span className="max-w-[200px] truncate block" title={row.original.address}>{row.original.address || '-'}</span> },
+                                    {
+                                        id: 'actions',
+                                        header: () => <div className="text-right">Actions</div>,
+                                        cell: ({ row }) => (
+                                            <div className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)}>
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original.id)} className="text-rose-500 hover:text-rose-700 hover:bg-rose-50">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        )
+                                    }
+                                ]}
+                                data={parties}
+                                loading={loading}
+                                totalCount={totalCount}
+                                pagination={pagination}
+                                setPagination={setPagination}
+                                sorting={sorting}
+                                setSorting={setSorting}
+                                manualSorting
+                                manualPagination
+                            />
                         </div>
                     </TabsContent>
                 ))}

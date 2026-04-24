@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import api from '@/services/api';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,8 @@ import { UnitDialog } from '@/components/inventory/UnitDialog';
 import { ProductDialog } from '@/components/inventory/ProductDialog';
 import { BrandDialog } from '@/components/inventory/BrandDialog';
 import { DataTable } from '@/components/ui/data-table';
-import { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
+import { useDataTable } from '@/hooks/use-data-table';
+import { ColumnDef } from '@tanstack/react-table';
 
 // Interfaces
 interface Product {
@@ -40,17 +41,28 @@ interface Brand { id: number; name: string; description: string; }
 
 export default function Inventory() {
     const [activeTab, setActiveTab] = useState('products');
-    const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [brands, setBrands] = useState<Brand[]>([]);
-    const [loading, setLoading] = useState(true);
 
-    // Server-side state for Products
-    const [productPagination, setProductPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 });
-    const [productSorting, setProductSorting] = useState<SortingState>([]);
-    const [productSearch, setProductSearch] = useState('');
-    const [productCount, setProductCount] = useState(0);
+    // Use our new generic hook for products
+    const {
+        data: products,
+        loading,
+        totalCount: productCount,
+        pagination: productPagination,
+        setPagination: setProductPagination,
+        sorting: productSorting,
+        setSorting: setProductSorting,
+        filters,
+        updateFilter,
+        refresh: fetchProducts
+    } = useDataTable<Product>({
+        endpoint: '/products',
+        initialFilters: { search: '' }
+    });
+
+    const productSearch = (filters.search as string) || '';
 
     // Client-side local filtering state
     const [categorySearch, setCategorySearch] = useState('');
@@ -64,34 +76,10 @@ export default function Inventory() {
     const [showBrandDialog, setShowBrandDialog] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
 
-    // Reset page index on search change
-    useEffect(() => {
-        setProductPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, [productSearch]);
-
-    useEffect(() => {
-        fetchData();
-    }, [activeTab, productPagination.pageIndex, productPagination.pageSize, productSorting, productSearch]);
-
-    const fetchData = async () => {
-        setLoading(true);
+    // Fetch non-paginated data manually or we could use useDataTable for them too
+    const fetchOtherData = useCallback(async () => {
         try {
-            if (activeTab === 'products') {
-                const sortParam = productSorting.length > 0 ? productSorting[0].id : '';
-                const sortOrder = productSorting.length > 0 ? (productSorting[0].desc ? 'desc' : 'asc') : '';
-
-                const res = await api.get('/products', {
-                    params: {
-                        pageIndex: productPagination.pageIndex + 1, // API is 1-indexed, table is 0-indexed
-                        pageSize: productPagination.pageSize,
-                        sort: sortParam,
-                        sortOrder: sortOrder,
-                        search: productSearch
-                    }
-                });
-                setProducts(res.data.data);
-                setProductCount(res.data.count);
-            } else if (activeTab === 'categories') {
+            if (activeTab === 'categories') {
                 const res = await api.get('/categories');
                 setCategories(res.data);
             } else if (activeTab === 'units') {
@@ -103,10 +91,14 @@ export default function Inventory() {
             }
         } catch (err) {
             console.error(err);
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'products') {
+            fetchOtherData();
+        }
+    }, [activeTab, fetchOtherData]);
 
     const handleEdit = (item: any, type: 'product' | 'category' | 'unit' | 'brand') => {
         setEditingItem(item);
@@ -141,7 +133,7 @@ export default function Inventory() {
                 if (products.length === 1 && productPagination.pageIndex > 0) {
                     setProductPagination(prev => ({ ...prev, pageIndex: prev.pageIndex - 1 }));
                 } else {
-                    await fetchData();
+                    await fetchProducts();
                 }
             } else {
                 // For other entities, update local state immediately for a snapier feel
@@ -290,8 +282,7 @@ export default function Inventory() {
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input type="search" placeholder="Search products..." className="pl-8" defaultValue={productSearch} onKeyDown={e => {
                                 if (e.key === 'Enter') {
-                                    setProductPagination(prev => ({ ...prev, pageIndex: 0 }));
-                                    setProductSearch(e.currentTarget.value);
+                                    updateFilter('search', e.currentTarget.value);
                                 }
                             }} />
                         </div>
@@ -373,10 +364,10 @@ export default function Inventory() {
             </Tabs>
 
             {/* Dialogs */}
-            <ProductDialog open={showProductDialog} onOpenChange={setShowProductDialog} productToEdit={editingItem} onSave={fetchData} />
-            <CategoryDialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog} categoryToEdit={editingItem} onSave={fetchData} />
-            <UnitDialog open={showUnitDialog} onOpenChange={setShowUnitDialog} unitToEdit={editingItem} onSave={fetchData} />
-            <BrandDialog open={showBrandDialog} onOpenChange={setShowBrandDialog} brandToEdit={editingItem} onSave={fetchData} />
+            <ProductDialog open={showProductDialog} onOpenChange={setShowProductDialog} productToEdit={editingItem} onSave={fetchProducts} />
+            <CategoryDialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog} categoryToEdit={editingItem} onSave={fetchOtherData} />
+            <UnitDialog open={showUnitDialog} onOpenChange={setShowUnitDialog} unitToEdit={editingItem} onSave={fetchOtherData} />
+            <BrandDialog open={showBrandDialog} onOpenChange={setShowBrandDialog} brandToEdit={editingItem} onSave={fetchOtherData} />
         </div>
     );
 }

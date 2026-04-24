@@ -28,6 +28,12 @@ interface Customer {
     name: string;
 }
 
+interface Account {
+    id: number;
+    name: string;
+    type: string;
+}
+
 interface SaleItem {
     productId: number;
     productName: string;
@@ -49,6 +55,7 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
     // Data states
     const [products, setProducts] = useState<Product[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [accounts, setAccounts] = useState<Account[]>([]);
     const [lastSaleId, setLastSaleId] = useState<number | null>(null);
     const [showInvoice, setShowInvoice] = useState(false);
 
@@ -59,6 +66,7 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
     const [items, setItems] = useState<SaleItem[]>([]);
     const [discount, setDiscount] = useState<string | number>('');
     const [paidAmount, setPaidAmount] = useState(0);
+    const [paymentAccountId, setPaymentAccountId] = useState<string>('');
     const [isSaving, setIsSaving] = useState(false);
 
     // Searchable Select state
@@ -69,17 +77,24 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
         const loadInitialData = async () => {
             try {
                 // Load base data
-                const [prodRes, custRes, invoiceRes] = await Promise.all([
-                    api.get('/products'),
-                    api.get('/customers'),
-                    api.get('/sales/next-invoice-number')
+                const [prodRes, custRes, invoiceRes, accRes] = await Promise.all([
+                    api.get('/products?pageSize=1000'),
+                    api.get('/customers?pageSize=1000'),
+                    api.get('/sales/next-invoice-number'),
+                    api.get('/accounts?pageSize=1000')
                 ]);
 
                 const productList = prodRes.data?.data || prodRes.data || [];
-                const customerList = custRes.data || [];
+                const customerList = custRes.data?.data || custRes.data || [];
+                const accountList = (accRes.data?.data || accRes.data || []).filter((a: any) => a.name === 'Cash' || a.name === 'Bank');
 
                 setProducts(productList);
                 setCustomers(customerList);
+                setAccounts(accountList);
+
+                // Default to Cash account if available
+                const cashAcc = accountList.find((a: any) => a.name === 'Cash');
+                if (cashAcc) setPaymentAccountId(cashAcc.id.toString());
 
                 // If editing, load the specific sale
                 if (saleId) {
@@ -187,6 +202,7 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                 customerId: customerId ? parseInt(customerId) : null,
                 discount: parseFloat(discount.toString()) || 0,
                 paidAmount,
+                paymentAccountId: parseInt(paymentAccountId),
                 items: items.map(i => ({
                     productId: i.productId,
                     quantity: i.quantity,
@@ -451,6 +467,22 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                                     onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
                                 />
                             </div>
+
+                            {paidAmount > 0 && (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Payment Account</label>
+                                    <Select value={paymentAccountId} onValueChange={setPaymentAccountId}>
+                                        <SelectTrigger className="h-10 bg-slate-800 border-slate-700 text-white">
+                                            <SelectValue placeholder="Select Account" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {accounts.map(acc => (
+                                                <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                         </CardContent>
                         <CardFooter className="bg-slate-800/40 p-6 flex flex-col gap-2 shrink-0">
                             <div className="flex justify-between w-full font-bold">

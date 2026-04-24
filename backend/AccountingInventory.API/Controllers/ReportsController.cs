@@ -1,5 +1,6 @@
 using AccountingInventory.Core.DTOs;
 using AccountingInventory.Infrastructure.Data;
+using AccountingInventory.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
@@ -33,9 +34,8 @@ namespace AccountingInventory.API.Controllers
             var count = await query.CountAsync();
 
             var products = await query
-                .OrderBy(p => p.Name)
-                .Skip((specParams.PageIndex - 1) * specParams.PageSize)
-                .Take(specParams.PageSize)
+                .ApplySorting(specParams, "Name")
+                .ApplyPagination(specParams)
                 .Select(p => new
                 {
                     p.Id,
@@ -85,9 +85,8 @@ namespace AccountingInventory.API.Controllers
             var totalDue = await query.SumAsync(s => s.DueAmount);
 
             var items = await query
-                .OrderByDescending(s => s.Date)
-                .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
-                .Take(reportParams.PageSize)
+                .ApplySorting(reportParams, "Date desc")
+                .ApplyPagination(reportParams)
                 .Select(s => new
                 {
                     s.Id,
@@ -140,10 +139,10 @@ namespace AccountingInventory.API.Controllers
 
             var totalRevenue = await groupedQuery.SumAsync(x => x.TotalRevenue);
             var count = await groupedQuery.CountAsync();
+
             var items = await groupedQuery
-                .OrderByDescending(x => x.TotalRevenue)
-                .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
-                .Take(reportParams.PageSize)
+                .ApplySorting(reportParams, "TotalRevenue desc")
+                .ApplyPagination(reportParams)
                 .ToListAsync();
 
             return Ok(new
@@ -172,7 +171,7 @@ namespace AccountingInventory.API.Controllers
             if (reportParams.CustomerId.HasValue)
                 salesQuery = salesQuery.Where(s => s.CustomerId == reportParams.CustomerId.Value);
 
-            var grouped = await salesQuery
+            var groupedQuery = salesQuery
                 .GroupBy(s => new { s.CustomerId, CustomerName = s.Customer != null ? s.Customer.Name : "Walk-in Customer" })
                 .Select(g => new
                 {
@@ -182,13 +181,17 @@ namespace AccountingInventory.API.Controllers
                     TotalAmount = g.Sum(x => x.TotalAmount),
                     PaidAmount = g.Sum(x => x.PaidAmount),
                     DueAmount = g.Sum(x => x.DueAmount)
-                })
-                .OrderByDescending(x => x.TotalAmount)
-                .ToListAsync();
+                });
+
+            var grouped = await groupedQuery.ToListAsync();
 
             return Ok(new
             {
-                Data = grouped.Skip((reportParams.PageIndex - 1) * reportParams.PageSize).Take(reportParams.PageSize).ToList(),
+                Data = grouped
+                    .AsQueryable()
+                    .ApplySorting(reportParams, "TotalAmount desc")
+                    .ApplyPagination(reportParams)
+                    .ToList(),
                 PageIndex = reportParams.PageIndex,
                 PageSize = reportParams.PageSize,
                 Count = grouped.Count,
@@ -226,9 +229,8 @@ namespace AccountingInventory.API.Controllers
             var totalDue = await query.SumAsync(p => p.DueAmount);
 
             var items = await query
-                .OrderByDescending(p => p.Date)
-                .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
-                .Take(reportParams.PageSize)
+                .ApplySorting(reportParams, "Date desc")
+                .ApplyPagination(reportParams)
                 .Select(p => new
                 {
                     p.Id,
@@ -281,10 +283,10 @@ namespace AccountingInventory.API.Controllers
 
             var totalCost = await groupedQuery.SumAsync(x => x.TotalCost);
             var count = await groupedQuery.CountAsync();
+
             var items = await groupedQuery
-                .OrderByDescending(x => x.TotalCost)
-                .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
-                .Take(reportParams.PageSize)
+                .ApplySorting(reportParams, "TotalCost desc")
+                .ApplyPagination(reportParams)
                 .ToListAsync();
 
             return Ok(new
@@ -313,7 +315,7 @@ namespace AccountingInventory.API.Controllers
             if (reportParams.SupplierId.HasValue)
                 purchasesQuery = purchasesQuery.Where(p => p.SupplierId == reportParams.SupplierId.Value);
 
-            var grouped = await purchasesQuery
+            var groupedQuery = purchasesQuery
                 .GroupBy(p => new { p.SupplierId, SupplierName = p.Supplier != null ? p.Supplier.Name : "Unknown Supplier" })
                 .Select(g => new
                 {
@@ -323,13 +325,17 @@ namespace AccountingInventory.API.Controllers
                     TotalAmount = g.Sum(x => x.TotalAmount),
                     PaidAmount = g.Sum(x => x.PaidAmount),
                     DueAmount = g.Sum(x => x.DueAmount)
-                })
-                .OrderByDescending(x => x.TotalAmount)
-                .ToListAsync();
+                });
+
+            var grouped = await groupedQuery.ToListAsync();
 
             return Ok(new
             {
-                Data = grouped.Skip((reportParams.PageIndex - 1) * reportParams.PageSize).Take(reportParams.PageSize).ToList(),
+                Data = grouped
+                    .AsQueryable()
+                    .ApplySorting(reportParams, "TotalAmount desc")
+                    .ApplyPagination(reportParams)
+                    .ToList(),
                 PageIndex = reportParams.PageIndex,
                 PageSize = reportParams.PageSize,
                 Count = grouped.Count,
@@ -356,7 +362,7 @@ namespace AccountingInventory.API.Controllers
             if (!string.IsNullOrEmpty(reportParams.Search))
                 salesQuery = salesQuery.Where(sd => sd.Product.Name.Contains(reportParams.Search));
 
-            var grouped = await salesQuery
+            var groupedQuery = salesQuery
                 .GroupBy(sd => new { sd.ProductId, sd.Product.Name, sd.Product.SKU, sd.Product.PurchasePrice })
                 .Select(g => new
                 {
@@ -368,12 +374,16 @@ namespace AccountingInventory.API.Controllers
                     UnitCost = g.Key.PurchasePrice,
                     TotalCost = g.Sum(x => x.Quantity) * g.Key.PurchasePrice,
                     TotalProfit = g.Sum(x => x.Total) - (g.Sum(x => x.Quantity) * g.Key.PurchasePrice)
-                })
-                .OrderByDescending(x => x.TotalProfit)
-                .ToListAsync();
+                });
+
+            var grouped = await groupedQuery.ToListAsync();
 
             var count = grouped.Count;
-            var items = grouped.Skip((reportParams.PageIndex - 1) * reportParams.PageSize).Take(reportParams.PageSize).ToList();
+            var items = grouped
+                .AsQueryable()
+                .ApplySorting(reportParams, "TotalProfit desc")
+                .ApplyPagination(reportParams)
+                .ToList();
             var totalProfit = grouped.Sum(x => x.TotalProfit);
 
             return Ok(new
@@ -399,7 +409,7 @@ namespace AccountingInventory.API.Controllers
 
             var count = await query.CountAsync();
 
-            var items = await query
+            var mappedQuery = query
                 .Select(p => new
                 {
                     p.Id,
@@ -409,10 +419,11 @@ namespace AccountingInventory.API.Controllers
                     p.SalePrice,
                     ProfitPerUnit = p.SalePrice - p.PurchasePrice,
                     Margin = p.SalePrice > 0 ? ((p.SalePrice - p.PurchasePrice) / p.SalePrice) * 100 : 0
-                })
-                .OrderByDescending(p => p.Margin)
-                .Skip((reportParams.PageIndex - 1) * reportParams.PageSize)
-                .Take(reportParams.PageSize)
+                });
+
+            var items = await mappedQuery
+                .ApplySorting(reportParams, "Margin desc")
+                .ApplyPagination(reportParams)
                 .ToListAsync();
 
             return Ok(new

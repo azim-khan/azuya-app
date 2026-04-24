@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using AccountingInventory.Core.DTOs;
 using AccountingInventory.Core.Entities;
 
 namespace AccountingInventory.Core.Interfaces
@@ -12,5 +13,6 @@ namespace AccountingInventory.Core.Interfaces
         Task UpdateAsync(T entity);
         Task DeleteAsync(T entity);
         Task<int> CountAsync(Expression<Func<T, bool>> predicate);
+        Task<Pagination<T>> ListAsync(BaseSpecParams specParams, Expression<Func<T, bool>>? predicate = null, string defaultSort = "Id");
     }
 }

@@ -35,6 +35,7 @@ namespace AccountingInventory.Core.DTOs
         public int? CustomerId { get; set; }
         public decimal Discount { get; set; }
         public decimal PaidAmount { get; set; }
+        public int PaymentAccountId { get; set; }
         public List<CreateSaleDetailDto> Items { get; set; } = new();
     }
 

@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { CustomDatePicker } from '@/components/ui/custom-date-picker';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, SortingState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import {
     Select,
@@ -30,13 +30,13 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
+import { useDataTable } from '@/hooks/use-data-table';
+
 export default function ReportsPage() {
     const [activeTab, setActiveTab] = useState('stock');
     const [salesTab, setSalesTab] = useState('summary');
     const [purchasesTab, setPurchasesTab] = useState('summary');
     const [profitTab, setProfitTab] = useState('product');
-
-    const [loading, setLoading] = useState(false);
 
     // Filters
     const [startDate, setStartDate] = useState('');
@@ -59,11 +59,61 @@ export default function ReportsPage() {
     const [supplierId, setSupplierId] = useState('All');
     const [suppliers, setSuppliers] = useState<any[]>([]);
 
-    // Data states
-    const [data, setData] = useState<any[]>([]);
-    const [count, setCount] = useState(0);
-    const [summaryStats, setSummaryStats] = useState<any>({});
-    const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 });
+    // Determine current endpoint based on tabs
+    const endpoint = useMemo(() => {
+        if (activeTab === 'stock') return '/reports/stock-valuation';
+        if (activeTab === 'sales') {
+            if (salesTab === 'summary') return '/reports/sales-summary';
+            if (salesTab === 'product') return '/reports/sales/by-product';
+            if (salesTab === 'customer') return '/reports/sales/by-customer';
+        }
+        if (activeTab === 'purchases') {
+            if (purchasesTab === 'summary') return '/reports/purchases-summary';
+            if (purchasesTab === 'product') return '/reports/purchases/by-product';
+            if (purchasesTab === 'supplier') return '/reports/purchases/by-supplier';
+        }
+        if (activeTab === 'profitability') {
+            if (profitTab === 'product') return '/reports/profit/by-product';
+            if (profitTab === 'margin') return '/reports/profit/margins';
+        }
+        return '';
+    }, [activeTab, salesTab, purchasesTab, profitTab]);
+
+    // Use our new generic hook
+    const {
+        data,
+        loading,
+        totalCount: count,
+        summaryStats,
+        pagination,
+        setPagination,
+        sorting,
+        setSorting,
+        filters,
+        setFilters
+    } = useDataTable<any>({
+        endpoint,
+        initialFilters: {
+            startDate: '',
+            endDate: '',
+            productId: 'All',
+            customerId: 'All',
+            supplierId: 'All',
+            paymentStatus: 'All'
+        }
+    });
+
+    // Update filters in the hook when local filter states change
+    useEffect(() => {
+        setFilters({
+            startDate,
+            endDate,
+            productId,
+            customerId,
+            supplierId,
+            paymentStatus
+        });
+    }, [startDate, endDate, productId, customerId, supplierId, paymentStatus, setFilters]);
 
     const fetchDropdownData = useCallback(async () => {
         try {
@@ -83,65 +133,6 @@ export default function ReportsPage() {
     useEffect(() => {
         fetchDropdownData();
     }, [fetchDropdownData]);
-
-    // Reset page to 1 when filters change
-    useEffect(() => {
-        setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }, [activeTab, salesTab, purchasesTab, profitTab, startDate, endDate, productId, customerId, supplierId, paymentStatus]);
-
-    const fetchReportData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams({
-                pageIndex: (pagination.pageIndex + 1).toString(),
-                pageSize: pagination.pageSize.toString(),
-            });
-
-            if (startDate) params.append('startDate', startDate);
-            if (endDate) params.append('endDate', endDate);
-            if (productId !== 'All') params.append('productId', productId);
-            if (customerId !== 'All') params.append('customerId', customerId);
-            if (supplierId !== 'All') params.append('supplierId', supplierId);
-            if (paymentStatus !== 'All') params.append('paymentStatus', paymentStatus);
-
-            let endpoint = '';
-
-            if (activeTab === 'stock') {
-                endpoint = '/reports/stock-valuation';
-            } else if (activeTab === 'sales') {
-                if (salesTab === 'summary') endpoint = '/reports/sales-summary';
-                if (salesTab === 'product') endpoint = '/reports/sales/by-product';
-                if (salesTab === 'customer') endpoint = '/reports/sales/by-customer';
-            } else if (activeTab === 'purchases') {
-                if (purchasesTab === 'summary') endpoint = '/reports/purchases-summary';
-                if (purchasesTab === 'product') endpoint = '/reports/purchases/by-product';
-                if (purchasesTab === 'supplier') endpoint = '/reports/purchases/by-supplier';
-            } else if (activeTab === 'profitability') {
-                if (profitTab === 'product') endpoint = '/reports/profit/by-product';
-                if (profitTab === 'margin') endpoint = '/reports/profit/margins';
-            }
-
-            const res = await api.get(`${endpoint}?${params}`);
-            setData(res.data.data);
-            setCount(res.data.count);
-
-            // Extract summary stats dynamically
-            const { data: _, pageIndex, pageSize, count: __, ...rest } = res.data;
-            setSummaryStats(rest);
-
-        } catch (error) {
-            console.error('Failed to fetch report data:', error);
-            setData([]);
-            setCount(0);
-            setSummaryStats({});
-        } finally {
-            setLoading(false);
-        }
-    }, [pagination, activeTab, salesTab, purchasesTab, profitTab, startDate, endDate, productId, customerId, supplierId, paymentStatus]);
-
-    useEffect(() => {
-        fetchReportData();
-    }, [fetchReportData]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -269,8 +260,6 @@ export default function ReportsPage() {
 
             <Tabs value={activeTab} onValueChange={(val) => {
                 setActiveTab(val);
-                setData([]);
-                setPagination({ pageIndex: 0, pageSize: 50 });
             }} className="flex-1 flex flex-col min-h-0 space-y-4">
 
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shrink-0">
@@ -434,22 +423,22 @@ export default function ReportsPage() {
                 {/* Sub Navigation based on Active Tab */}
                 {activeTab === 'sales' && (
                     <div className="flex gap-2 shrink-0 border-b pb-2">
-                        <Button variant={salesTab === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => { setSalesTab('summary'); setData([]); }}>Summary</Button>
-                        <Button variant={salesTab === 'product' ? 'default' : 'outline'} size="sm" onClick={() => { setSalesTab('product'); setData([]); }}>By Product</Button>
-                        <Button variant={salesTab === 'customer' ? 'default' : 'outline'} size="sm" onClick={() => { setSalesTab('customer'); setData([]); }}>By Customer</Button>
+                        <Button variant={salesTab === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => { setSalesTab('summary'); }}>Summary</Button>
+                        <Button variant={salesTab === 'product' ? 'default' : 'outline'} size="sm" onClick={() => { setSalesTab('product'); }}>By Product</Button>
+                        <Button variant={salesTab === 'customer' ? 'default' : 'outline'} size="sm" onClick={() => { setSalesTab('customer'); }}>By Customer</Button>
                     </div>
                 )}
                 {activeTab === 'purchases' && (
                     <div className="flex gap-2 shrink-0 border-b pb-2">
-                        <Button variant={purchasesTab === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => { setPurchasesTab('summary'); setData([]); }}>Summary</Button>
-                        <Button variant={purchasesTab === 'product' ? 'default' : 'outline'} size="sm" onClick={() => { setPurchasesTab('product'); setData([]); }}>By Product</Button>
-                        <Button variant={purchasesTab === 'supplier' ? 'default' : 'outline'} size="sm" onClick={() => { setPurchasesTab('supplier'); setData([]); }}>By Supplier</Button>
+                        <Button variant={purchasesTab === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => { setPurchasesTab('summary'); }}>Summary</Button>
+                        <Button variant={purchasesTab === 'product' ? 'default' : 'outline'} size="sm" onClick={() => { setPurchasesTab('product'); }}>By Product</Button>
+                        <Button variant={purchasesTab === 'supplier' ? 'default' : 'outline'} size="sm" onClick={() => { setPurchasesTab('supplier'); }}>By Supplier</Button>
                     </div>
                 )}
                 {activeTab === 'profitability' && (
                     <div className="flex gap-2 shrink-0 border-b pb-2">
-                        <Button variant={profitTab === 'product' ? 'default' : 'outline'} size="sm" onClick={() => { setProfitTab('product'); setData([]); }}>Profit Per Product</Button>
-                        <Button variant={profitTab === 'margin' ? 'default' : 'outline'} size="sm" onClick={() => { setProfitTab('margin'); setData([]); }}>Margin Analysis</Button>
+                        <Button variant={profitTab === 'product' ? 'default' : 'outline'} size="sm" onClick={() => { setProfitTab('product'); }}>Profit Per Product</Button>
+                        <Button variant={profitTab === 'margin' ? 'default' : 'outline'} size="sm" onClick={() => { setProfitTab('margin'); }}>Margin Analysis</Button>
                     </div>
                 )}
 
@@ -557,9 +546,12 @@ export default function ReportsPage() {
                             data={data}
                             loading={loading}
                             manualPagination
+                            manualSorting={true}
                             pageCount={Math.ceil(count / pagination.pageSize)}
                             pagination={pagination}
                             setPagination={setPagination}
+                            sorting={sorting}
+                            setSorting={setSorting}
                             totalCount={count}
                         />
                     </div>

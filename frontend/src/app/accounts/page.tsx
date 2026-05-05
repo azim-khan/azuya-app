@@ -6,6 +6,7 @@ import { CreditCard, Plus, Loader2, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
+import { AdjustmentDialog } from '@/components/accounts/AdjustmentDialog';
 import { useRouter } from 'next/navigation';
 
 import { useDataTable } from '@/hooks/use-data-table';
@@ -15,15 +16,15 @@ import { Input } from '@/components/ui/input';
 
 export default function Accounts() {
     const router = useRouter();
-    const { 
-        data: accounts, 
-        loading, 
+    const {
+        data: accounts,
+        loading,
         totalCount,
-        pagination, 
+        pagination,
         setPagination,
-        filters, 
-        updateFilter, 
-        refresh 
+        filters,
+        updateFilter,
+        refresh
     } = useDataTable({ endpoint: '/accounts' });
 
     // Calculate pagination info for display
@@ -34,6 +35,10 @@ export default function Accounts() {
     const [showDialog, setShowDialog] = useState(false);
     const [editingAccount, setEditingAccount] = useState<any>(null);
 
+    // Adjustment state
+    const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
+    const [adjustingAccount, setAdjustingAccount] = useState<any>(null);
+
     const handleAdd = () => {
         setEditingAccount(null);
         setShowDialog(true);
@@ -42,6 +47,11 @@ export default function Accounts() {
     const handleEdit = (acc: any) => {
         setEditingAccount(acc);
         setShowDialog(true);
+    };
+
+    const handleAdjust = (acc: any) => {
+        setAdjustingAccount(acc);
+        setShowAdjustmentDialog(true);
     };
 
     // Local search state to trigger on Enter
@@ -54,7 +64,7 @@ export default function Accounts() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 flex flex-col h-full">
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Accounts</h2>
@@ -91,10 +101,10 @@ export default function Accounts() {
                 )}
             </div>
 
-            <Card>
-                <div className="overflow-x-auto">
+            <Card className="flex-1">
+                <div className="overflow-auto h-full">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                        <thead className="[&_tr]:border-b sticky top-0 z-10 bg-background shadow-sm hover:bg-background">
                             <tr>
                                 <th className="px-6 py-4 text-left">Account Name</th>
                                 <th className="px-6 py-4 text-left">Type</th>
@@ -126,17 +136,30 @@ export default function Accounts() {
                                         ৳{acc.balance.toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 text-right pr-10">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                            onClick={(e) => { 
-                                                e.stopPropagation(); 
-                                                router.push(`/accounts/${acc.id}/ledger`);
-                                            }}
-                                        >
-                                            View Ledger
-                                        </Button>
+                                        <div className="flex justify-end gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-[10px] font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-7 px-2"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleAdjust(acc);
+                                                }}
+                                            >
+                                                Adjust
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 px-2"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.push(`/accounts/${acc.id}/ledger`);
+                                                }}
+                                            >
+                                                Ledger
+                                            </Button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -173,6 +196,13 @@ export default function Accounts() {
                 open={showDialog}
                 onOpenChange={setShowDialog}
                 accountToEdit={editingAccount}
+                onSave={refresh}
+            />
+
+            <AdjustmentDialog
+                open={showAdjustmentDialog}
+                onOpenChange={setShowAdjustmentDialog}
+                account={adjustingAccount}
                 onSave={refresh}
             />
         </div>

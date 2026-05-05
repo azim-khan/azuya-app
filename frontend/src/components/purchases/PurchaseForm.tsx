@@ -10,6 +10,7 @@ import { Trash2, Plus, Search, Loader2, Save, PackageSearch, Info } from 'lucide
 import { toast } from '@/hooks/use-toast';
 import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import { format } from 'date-fns';
+import { SystemAccount, AccountType } from '@/lib/constants';
 
 interface PurchaseItem {
     productId: number;
@@ -54,14 +55,16 @@ export default function PurchaseForm({ purchaseId, onSuccess, onCancel }: Purcha
                 ]);
 
                 const productList = prodRes.data?.data || prodRes.data || [];
-                const accountList = (accRes.data?.data || accRes.data || []).filter((a: any) => a.name === 'Cash' || a.name === 'Bank');
-                
+                const accountList = (accRes.data?.data || accRes.data || []).filter((a: any) => 
+                    a.type?.toLowerCase() === AccountType.Asset.toLowerCase()
+                );
+
                 setProducts(productList);
                 setSuppliers(suppRes.data?.data || suppRes.data || []);
                 setAccounts(accountList);
 
                 // Default to Cash account
-                const cashAcc = accountList.find((a: any) => a.name === 'Cash');
+                const cashAcc = accountList.find((a: any) => a.name === SystemAccount.Cash);
                 if (cashAcc) setPaymentAccountId(cashAcc.id.toString());
                 if (!purchaseId) setPurchaseNo(nextNoRes.data.purchaseNo);
 
@@ -205,7 +208,7 @@ export default function PurchaseForm({ purchaseId, onSuccess, onCancel }: Purcha
                 <div className="lg:col-span-3 flex flex-col min-h-0 bg-white border rounded-xl shadow-sm overflow-hidden">
                     <div className="bg-slate-50/80 border-b py-3 px-6 flex items-center justify-between shrink-0">
                         <div>
-                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tighter">Line Items</h3>
+                            <h3 className="text-sm font-bold text-slate-900 uppercase">Items</h3>
                         </div>
 
                         {/* Searchable Product Selector */}
@@ -381,8 +384,7 @@ export default function PurchaseForm({ purchaseId, onSuccess, onCancel }: Purcha
                                     <div className={`h-full ${dueAmount > 0 ? 'bg-rose-500' : 'bg-emerald-500'} w-full animate-pulse`}></div>
                                 </div>
                             </div>
-                            
-                            {parseFloat(paidAmount.toString()) > 0 && (
+
                                 <div className="space-y-2 mt-4">
                                     <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Payment Account</label>
                                     <Select value={paymentAccountId} onValueChange={setPaymentAccountId}>
@@ -396,7 +398,6 @@ export default function PurchaseForm({ purchaseId, onSuccess, onCancel }: Purcha
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            )}
                         </CardContent>
                     </Card>
                 </div>

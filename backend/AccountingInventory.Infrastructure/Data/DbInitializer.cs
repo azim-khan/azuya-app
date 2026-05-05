@@ -46,14 +46,15 @@ namespace AccountingInventory.Infrastructure.Data
             {
                 var systemAccounts = new List<Account>
                 {
-                    new Account { Name = "Cash", Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
-                    new Account { Name = "Bank", Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
-                    new Account { Name = "Sales", Type = AccountType.Income, IsSystemAccount = true, Balance = 0 },
-                    new Account { Name = "Purchases", Type = AccountType.Expense, IsSystemAccount = true, Balance = 0 },
-                    new Account { Name = "Inventory", Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
-                    new Account { Name = "Expense", Type = AccountType.Expense, IsSystemAccount = true, Balance = 0 },
-                    new Account { Name = "Accounts Receivable", Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
-                    new Account { Name = "Accounts Payable", Type = AccountType.Liability, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.Cash, Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.Bank, Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.Sales, Type = AccountType.Income, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.Purchases, Type = AccountType.Expense, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.Inventory, Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.Expense, Type = AccountType.Expense, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.AccountsReceivable, Type = AccountType.Asset, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.AccountsPayable, Type = AccountType.Liability, IsSystemAccount = true, Balance = 0 },
+                    new Account { Name = SystemAccount.OpeningBalanceEquity, Type = AccountType.Equity, IsSystemAccount = true, Balance = 0 },
                 };
 
                 context.Accounts.AddRange(systemAccounts);

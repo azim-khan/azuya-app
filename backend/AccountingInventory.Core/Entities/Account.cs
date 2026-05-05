@@ -13,6 +13,19 @@ namespace AccountingInventory.Core.Entities
         Expense
     }
 
+    public static class SystemAccount
+    {
+        public const string Cash = "Cash";
+        public const string Bank = "Bank";
+        public const string Sales = "Sales";
+        public const string Purchases = "Purchases";
+        public const string Inventory = "Inventory";
+        public const string Expense = "Expense";
+        public const string AccountsReceivable = "Accounts Receivable";
+        public const string AccountsPayable = "Accounts Payable";
+        public const string OpeningBalanceEquity = "Opening Balance Equity";
+    }
+
     public class Account : BaseEntity
     {
         [Required]

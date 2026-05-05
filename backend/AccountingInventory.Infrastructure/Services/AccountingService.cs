@@ -29,7 +29,7 @@ namespace AccountingInventory.Infrastructure.Services
             };
 
             // 1. Credit Sales Account (Income)
-            await AddLedgerEntry(journal, "Sales", 0, sale.TotalAmount);
+            await AddLedgerEntry(journal, SystemAccount.Sales, 0, sale.TotalAmount);
 
             // 2. Debit Payment Account (Cash/Bank) for the paid amount
             if (sale.PaidAmount > 0)
@@ -42,7 +42,14 @@ namespace AccountingInventory.Infrastructure.Services
             // 3. Debit Accounts Receivable (Asset) for the due amount
             if (sale.DueAmount > 0)
             {
-                await AddLedgerEntry(journal, "Accounts Receivable", sale.DueAmount, 0);
+                await AddLedgerEntry(journal, SystemAccount.AccountsReceivable, sale.DueAmount, 0);
+                
+                // Update Customer Balance
+                var customer = await _context.Customers.FindAsync(sale.CustomerId);
+                if (customer != null)
+                {
+                    customer.Balance += sale.DueAmount;
+                }
             }
 
             // 4. Handle COGS and Inventory (Perpetual Inventory)
@@ -59,9 +66,9 @@ namespace AccountingInventory.Infrastructure.Services
             if (totalCost > 0)
             {
                 // Debit Expense/COGS
-                await AddLedgerEntry(journal, "Expense", totalCost, 0);
+                await AddLedgerEntry(journal, SystemAccount.Expense, totalCost, 0);
                 // Credit Inventory
-                await AddLedgerEntry(journal, "Inventory", 0, totalCost);
+                await AddLedgerEntry(journal, SystemAccount.Inventory, 0, totalCost);
             }
 
             _context.JournalEntries.Add(journal);
@@ -79,7 +86,7 @@ namespace AccountingInventory.Infrastructure.Services
             };
 
             // 1. Debit Inventory (Asset)
-            await AddLedgerEntry(journal, "Inventory", purchase.TotalAmount, 0);
+            await AddLedgerEntry(journal, SystemAccount.Inventory, purchase.TotalAmount, 0);
 
             // 2. Credit Payment Account (Cash/Bank) for paid amount
             if (purchase.PaidAmount > 0)
@@ -92,7 +99,14 @@ namespace AccountingInventory.Infrastructure.Services
             // 3. Credit Accounts Payable (Liability) for due amount
             if (purchase.DueAmount > 0)
             {
-                await AddLedgerEntry(journal, "Accounts Payable", 0, purchase.DueAmount);
+                await AddLedgerEntry(journal, SystemAccount.AccountsPayable, 0, purchase.DueAmount);
+                
+                // Update Supplier Balance
+                var supplier = await _context.Suppliers.FindAsync(purchase.SupplierId);
+                if (supplier != null)
+                {
+                    supplier.Balance += purchase.DueAmount;
+                }
             }
 
             _context.JournalEntries.Add(journal);
@@ -107,17 +121,12 @@ namespace AccountingInventory.Infrastructure.Services
 
             if (journal != null)
             {
-                // Reverse account balances before deleting
+                // Reverse account balances
                 foreach (var entry in journal.Entries)
                 {
                     var account = await _context.Accounts.FindAsync(entry.AccountId);
                     if (account != null)
                     {
-                        // To reverse: subtract debit, add credit
-                        // But since we want to remove the impact:
-                        // Asset/Expense: Balance = Balance - Debit + Credit
-                        // Liability/Income/Equity: Balance = Balance + Debit - Credit
-                        
                         if (account.Type == AccountType.Asset || account.Type == AccountType.Expense)
                         {
                             account.Balance -= entry.Debit;
@@ -128,6 +137,26 @@ namespace AccountingInventory.Infrastructure.Services
                             account.Balance += entry.Debit;
                             account.Balance -= entry.Credit;
                         }
+                    }
+                }
+
+                // Reverse Party Balance if applicable
+                if (journal.SourceType == "Sale")
+                {
+                    var sale = await _context.Sales.FirstOrDefaultAsync(s => s.InvoiceNo == referenceNo);
+                    if (sale != null)
+                    {
+                        var customer = await _context.Customers.FindAsync(sale.CustomerId);
+                        if (customer != null) customer.Balance -= sale.DueAmount;
+                    }
+                }
+                else if (journal.SourceType == "Purchase")
+                {
+                    var purchase = await _context.Purchases.FirstOrDefaultAsync(p => p.PurchaseNo == referenceNo);
+                    if (purchase != null)
+                    {
+                        var supplier = await _context.Suppliers.FindAsync(purchase.SupplierId);
+                        if (supplier != null) supplier.Balance -= purchase.DueAmount;
                     }
                 }
 

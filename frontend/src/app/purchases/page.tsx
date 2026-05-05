@@ -202,7 +202,7 @@ export default function PurchasesPage() {
 
 
     return (
-        <div className="space-y-6 flex-1 flex flex-col">
+        <div className="space-y-6 flex-1 flex flex-col h-full overflow-hidden">
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Purchase Management</h2>

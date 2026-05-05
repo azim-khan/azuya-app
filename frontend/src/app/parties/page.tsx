@@ -1,5 +1,7 @@
 'use client';
 
+import { cn } from '@/lib/utils';
+
 import { useEffect, useState } from 'react';
 import api from '@/services/api';
 import { Plus, Search, Loader2, Pencil, Trash2 } from 'lucide-react';
@@ -21,7 +23,7 @@ import { useDataTable } from '@/hooks/use-data-table';
 export default function Parties() {
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState('customers');
-    
+
     // Dialog state
     const [showDialog, setShowDialog] = useState(false);
     const [editingParty, setEditingParty] = useState<any>(null);
@@ -69,7 +71,7 @@ export default function Parties() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 flex flex-col h-full overflow-hidden">
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Parties</h2>
@@ -77,14 +79,14 @@ export default function Parties() {
                 </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex-1 flex flex-col min-h-0">
                 <TabsList>
                     <TabsTrigger value="customers">Customers</TabsTrigger>
                     <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
                 </TabsList>
 
                 {['customers', 'suppliers'].map((tab) => (
-                    <TabsContent key={tab} value={tab} className="space-y-4">
+                    <TabsContent key={tab} value={tab} className="space-y-4 flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
                         <div className="flex justify-between items-center gap-4">
                             <div className="relative flex-1 max-w-sm">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -94,12 +96,21 @@ export default function Parties() {
                                 <Plus className="mr-2 h-4 w-4" /> Add {tab.slice(0, -1)}
                             </Button>
                         </div>
-                        <div className="rounded-md border">
+                        <div className="flex-1 flex flex-col min-h-0">
                             <DataTable
                                 columns={[
                                     { accessorKey: 'name', header: 'Name' },
                                     { accessorKey: 'phone', header: 'Phone' },
                                     { accessorKey: 'email', header: 'Email' },
+                                    {
+                                        accessorKey: 'balance',
+                                        header: () => <div className="text-right">Balance</div>,
+                                        cell: ({ row }) => (
+                                            <div className={cn("text-right font-bold", row.original.balance > 0 ? "text-rose-600" : "text-emerald-600")}>
+                                                ৳{row.original.balance.toLocaleString()}
+                                            </div>
+                                        )
+                                    },
                                     { accessorKey: 'address', header: 'Address', cell: ({ row }) => <span className="max-w-[200px] truncate block" title={row.original.address}>{row.original.address || '-'}</span> },
                                     {
                                         id: 'actions',

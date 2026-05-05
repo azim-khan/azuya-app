@@ -41,10 +41,82 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Account>> CreateAccount(Account account)
+        public async Task<ActionResult<Account>> CreateAccount(CreateAccountDto dto)
         {
-            await _repository.AddAsync(account);
-            return CreatedAtAction(nameof(GetAccounts), new { id = account.Id }, account);
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var account = new Account
+                {
+                    Name = dto.Name,
+                    Type = dto.Type,
+                    Balance = dto.OpeningBalance
+                };
+
+                await _repository.AddAsync(account);
+
+                if (dto.OpeningBalance != 0)
+                {
+                    var openingBalanceEquity = await _context.Accounts
+                        .FirstOrDefaultAsync(a => a.Name == SystemAccount.OpeningBalanceEquity);
+
+                    if (openingBalanceEquity == null)
+                    {
+                        openingBalanceEquity = new Account
+                        {
+                            Name = SystemAccount.OpeningBalanceEquity,
+                            Type = AccountType.Equity,
+                            IsSystemAccount = true,
+                            Balance = 0
+                        };
+                        _context.Accounts.Add(openingBalanceEquity);
+                        await _context.SaveChangesAsync(); // Get the ID
+                    }
+
+                    var journalEntry = new JournalEntry
+                    {
+                        Date = DateTime.UtcNow,
+                        Description = $"Opening balance for {account.Name}",
+                        ReferenceNo = "OB",
+                        SourceType = "Opening Balance"
+                    };
+
+                    bool isDebitAccount = account.Type == AccountType.Asset || account.Type == AccountType.Expense;
+
+                    // If it's an Asset/Expense, we Debit it to increase balance.
+                    // If it's Liability/Equity/Income, we Credit it to increase balance.
+
+                    journalEntry.Entries.Add(new LedgerEntry
+                    {
+                        AccountId = account.Id,
+                        Debit = isDebitAccount ? Math.Abs(dto.OpeningBalance) : 0,
+                        Credit = !isDebitAccount ? Math.Abs(dto.OpeningBalance) : 0
+                    });
+
+                    journalEntry.Entries.Add(new LedgerEntry
+                    {
+                        AccountId = openingBalanceEquity.Id,
+                        Debit = !isDebitAccount ? Math.Abs(dto.OpeningBalance) : 0,
+                        Credit = isDebitAccount ? Math.Abs(dto.OpeningBalance) : 0
+                    });
+
+                    _context.JournalEntries.Add(journalEntry);
+
+                    // Update Equity balance
+                    if (isDebitAccount) openingBalanceEquity.Balance -= dto.OpeningBalance;
+                    else openingBalanceEquity.Balance += dto.OpeningBalance;
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return CreatedAtAction(nameof(GetAccounts), new { id = account.Id }, account);
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         [HttpPut("{id}")]
@@ -52,7 +124,7 @@ namespace AccountingInventory.API.Controllers
         {
             var existing = await _context.Accounts.FindAsync(id);
             if (existing == null) return NotFound();
-            
+
             if (existing.IsSystemAccount)
             {
                 // Only allow updating balance manually if needed? 
@@ -62,7 +134,7 @@ namespace AccountingInventory.API.Controllers
 
             existing.Name = account.Name;
             existing.Type = account.Type;
-            
+
             await _context.SaveChangesAsync();
             return NoContent();
         }
@@ -72,33 +144,197 @@ namespace AccountingInventory.API.Controllers
         {
             var account = await _context.Accounts.FindAsync(id);
             if (account == null) return NotFound();
-            
+
             if (account.IsSystemAccount) return BadRequest("System accounts cannot be deleted.");
-            
+
             _context.Accounts.Remove(account);
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
         [HttpGet("{id}/ledger")]
-        public async Task<ActionResult<IEnumerable<LedgerEntry>>> GetLedger(int id)
+        public async Task<ActionResult<Pagination<LedgerEntry>>> GetLedger(int id, [FromQuery] ReportParams reportParams)
         {
-            var entries = await _context.LedgerEntries
+            var query = _context.LedgerEntries
                 .Include(l => l.JournalEntry)
                 .Where(l => l.AccountId == id)
+                .AsQueryable();
+
+            if (reportParams.StartDate.HasValue)
+            {
+                query = query.Where(l => l.JournalEntry!.Date >= reportParams.StartDate.Value);
+            }
+
+            if (reportParams.EndDate.HasValue)
+            {
+                query = query.Where(l => l.JournalEntry!.Date <= reportParams.EndDate.Value);
+            }
+
+            var count = await query.CountAsync();
+
+            var entries = await query
                 .OrderByDescending(l => l.JournalEntry!.Date)
+                .ApplyPagination(reportParams)
                 .ToListAsync();
-            return Ok(entries);
+
+            return Ok(new Pagination<LedgerEntry>(reportParams.PageIndex, reportParams.PageSize, count, entries));
         }
 
         [HttpGet("journal")]
-        public async Task<ActionResult<IEnumerable<JournalEntry>>> GetJournal()
+        public async Task<ActionResult<Pagination<JournalEntry>>> GetJournal([FromQuery] ReportParams reportParams)
         {
-            return Ok(await _context.JournalEntries
+            var query = _context.JournalEntries
                 .Include(j => j.Entries)
                 .ThenInclude(e => e.Account)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(reportParams.Search))
+            {
+                query = query.Where(j => j.Description.Contains(reportParams.Search) || j.ReferenceNo.Contains(reportParams.Search));
+            }
+
+            if (reportParams.StartDate.HasValue)
+            {
+                query = query.Where(j => j.Date >= reportParams.StartDate.Value);
+            }
+
+            if (reportParams.EndDate.HasValue)
+            {
+                query = query.Where(j => j.Date <= reportParams.EndDate.Value);
+            }
+            
+            if (reportParams.AccountId.HasValue)
+            {
+                query = query.Where(j => j.Entries.Any(e => e.AccountId == reportParams.AccountId.Value));
+            }
+
+            var count = await query.CountAsync();
+
+            var entries = await query
                 .OrderByDescending(j => j.Date)
-                .ToListAsync());
+                .ApplyPagination(reportParams)
+                .ToListAsync();
+
+            return Ok(new Pagination<JournalEntry>(reportParams.PageIndex, reportParams.PageSize, count, entries));
+        }
+
+        [HttpPost("journal")]
+        public async Task<IActionResult> CreateManualJournalEntry(ManualJournalEntryDto dto)
+        {
+            if (dto.Items.Sum(x => x.Debit) != dto.Items.Sum(x => x.Credit))
+            {
+                return BadRequest("Total Debits must equal Total Credits.");
+            }
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var journalEntry = new JournalEntry
+                {
+                    Date = dto.Date,
+                    Description = dto.Description,
+                    ReferenceNo = dto.ReferenceNo,
+                    SourceType = "Manual"
+                };
+
+                foreach (var item in dto.Items)
+                {
+                    var account = await _context.Accounts.FindAsync(item.AccountId);
+                    if (account == null) return BadRequest($"Account with ID {item.AccountId} not found.");
+
+                    journalEntry.Entries.Add(new LedgerEntry
+                    {
+                        AccountId = item.AccountId,
+                        Debit = item.Debit,
+                        Credit = item.Credit
+                    });
+
+                    // Update account balance
+                    bool isDebitAccount = account.Type == AccountType.Asset || account.Type == AccountType.Expense;
+                    if (isDebitAccount) account.Balance += (item.Debit - item.Credit);
+                    else account.Balance += (item.Credit - item.Debit);
+                }
+
+                _context.JournalEntries.Add(journalEntry);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(journalEntry);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpPost("{id}/adjust")]
+        public async Task<IActionResult> AdjustAccount(int id, [FromBody] AccountAdjustmentDto dto)
+        {
+            var account = await _context.Accounts.FindAsync(id);
+            if (account == null) return NotFound();
+
+            var counterpartAccount = await _context.Accounts.FindAsync(dto.CounterpartAccountId);
+            if (counterpartAccount == null) return BadRequest("Counterpart account not found.");
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var journalEntry = new JournalEntry
+                {
+                    Date = DateTime.UtcNow,
+                    Description = dto.Description,
+                    ReferenceNo = "ADJ",
+                    SourceType = "Adjustment"
+                };
+
+                bool isDebitAccount = account.Type == AccountType.Asset || account.Type == AccountType.Expense;
+                bool isCounterpartDebitAccount = counterpartAccount.Type == AccountType.Asset || counterpartAccount.Type == AccountType.Expense;
+
+                // Create ledger entries
+                journalEntry.Entries.Add(new LedgerEntry
+                {
+                    AccountId = account.Id,
+                    Debit = isDebitAccount ? dto.Amount : 0,
+                    Credit = !isDebitAccount ? dto.Amount : 0
+                });
+
+                journalEntry.Entries.Add(new LedgerEntry
+                {
+                    AccountId = counterpartAccount.Id,
+                    Debit = !isDebitAccount ? dto.Amount : 0,
+                    Credit = isDebitAccount ? dto.Amount : 0
+                });
+
+                // Update balances
+                account.Balance += dto.Amount; // In this context, 'Amount' is the net increase (positive) or decrease (negative)
+                // But wait, it's better to explicitly use Debit/Credit logic for the counterpart
+                if (isDebitAccount)
+                {
+                    // If we debited account (increasing it), we must credit counterpart.
+                    // If we credited account (decreasing it), we must debit counterpart.
+                    if (isCounterpartDebitAccount) counterpartAccount.Balance -= dto.Amount;
+                    else counterpartAccount.Balance += dto.Amount;
+                }
+                else
+                {
+                    // If we credited account (increasing it), we must debit counterpart.
+                    // If we debited account (decreasing it), we must credit counterpart.
+                    if (isCounterpartDebitAccount) counterpartAccount.Balance += dto.Amount;
+                    else counterpartAccount.Balance -= dto.Amount;
+                }
+
+                _context.JournalEntries.Add(journalEntry);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, ex.Message);
+            }
         }
     }
 }

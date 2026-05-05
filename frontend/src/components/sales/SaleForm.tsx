@@ -5,13 +5,14 @@ import api from '@/services/api';
 import { Trash2, Save, Printer, PackageSearch, Info, X, Search, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { SystemAccount, AccountType } from '@/lib/constants';
 import InvoicePrinter from '@/components/sales/InvoicePrinter';
 
 interface Product {
@@ -86,14 +87,16 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
 
                 const productList = prodRes.data?.data || prodRes.data || [];
                 const customerList = custRes.data?.data || custRes.data || [];
-                const accountList = (accRes.data?.data || accRes.data || []).filter((a: any) => a.name === 'Cash' || a.name === 'Bank');
+                const accountList = (accRes.data?.data || accRes.data || []).filter((a: any) => 
+                    a.type?.toLowerCase() === AccountType.Asset.toLowerCase()
+                );
 
                 setProducts(productList);
                 setCustomers(customerList);
                 setAccounts(accountList);
 
                 // Default to Cash account if available
-                const cashAcc = accountList.find((a: any) => a.name === 'Cash');
+                const cashAcc = accountList.find((a: any) => a.name === SystemAccount.Cash);
                 if (cashAcc) setPaymentAccountId(cashAcc.id.toString());
 
                 // If editing, load the specific sale
@@ -292,7 +295,7 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                 <div className="lg:col-span-3 flex flex-col min-h-0 bg-white border rounded-xl shadow-sm overflow-hidden">
                     <div className="bg-slate-50/80 border-b py-3 px-6 flex items-center justify-between shrink-0">
                         <div>
-                            <CardTitle className="text-base font-bold text-slate-900">Cart Items</CardTitle>
+                            <h3 className="text-sm font-bold text-slate-900 uppercase">Items</h3>
                         </div>
 
                         {/* Custom Searchable Product Selector */}
@@ -468,21 +471,19 @@ export default function SaleForm({ saleId, onSuccess, onCancel }: SaleFormProps)
                                 />
                             </div>
 
-                            {paidAmount > 0 && (
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Payment Account</label>
-                                    <Select value={paymentAccountId} onValueChange={setPaymentAccountId}>
-                                        <SelectTrigger className="h-10 bg-slate-800 border-slate-700 text-white">
-                                            <SelectValue placeholder="Select Account" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {accounts.map(acc => (
-                                                <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Payment Account</label>
+                                <Select value={paymentAccountId} onValueChange={setPaymentAccountId}>
+                                    <SelectTrigger className="h-10 bg-slate-800 border-slate-700 text-white">
+                                        <SelectValue placeholder="Select Account" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {accounts.map(acc => (
+                                            <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </CardContent>
                         <CardFooter className="bg-slate-800/40 p-6 flex flex-col gap-2 shrink-0">
                             <div className="flex justify-between w-full font-bold">

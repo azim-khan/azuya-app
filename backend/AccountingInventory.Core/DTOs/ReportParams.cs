@@ -10,5 +10,6 @@ namespace AccountingInventory.Core.DTOs
         public string? PaymentStatus { get; set; }
         public int? CustomerId { get; set; }
         public int? SupplierId { get; set; }
+        public int? AccountId { get; set; }
     }
 }

@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using AccountingInventory.Core.DTOs;
-using Microsoft.EntityFrameworkCore;
 
 namespace AccountingInventory.Infrastructure.Extensions
 {

@@ -19,6 +19,7 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from '@/components/ui/form';
 import {
     Select,
@@ -30,12 +31,14 @@ import {
 import { Input } from '@/components/ui/input';
 import api from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { SystemAccount, AccountType } from '@/lib/constants';
 
-const ACCOUNT_TYPES = ['Asset', 'Liability', 'Equity', 'Income', 'Expense'] as const;
+const ACCOUNT_TYPES = Object.values(AccountType);
 
 const formSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     type: z.enum(ACCOUNT_TYPES),
+    openingBalance: z.coerce.number().default(0),
 });
 
 interface AccountDialogProps {
@@ -51,7 +54,8 @@ export function AccountDialog({ open, onOpenChange, accountToEdit, onSave }: Acc
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: '',
-            type: 'Asset',
+            type: AccountType.Asset,
+            openingBalance: 0,
         },
     });
 
@@ -60,11 +64,13 @@ export function AccountDialog({ open, onOpenChange, accountToEdit, onSave }: Acc
             form.reset({
                 name: accountToEdit.name,
                 type: accountToEdit.type,
+                openingBalance: 0, // Reset to 0 when editing
             });
         } else {
             form.reset({
                 name: '',
-                type: 'Asset',
+                type: AccountType.Asset,
+                openingBalance: 0,
             });
         }
     }, [accountToEdit, form, open]);
@@ -132,6 +138,24 @@ export function AccountDialog({ open, onOpenChange, accountToEdit, onSave }: Acc
                                 </FormItem>
                             )}
                         />
+                        {!accountToEdit && (
+                            <FormField
+                                control={form.control}
+                                name="openingBalance"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Opening Balance</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                                        </FormControl>
+                                        <FormDescription className="text-[10px]">
+                                            This will create an initial journal entry against "{SystemAccount.OpeningBalanceEquity}".
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
                         <DialogFooter>
                             <Button type="submit">{accountToEdit ? 'Save Changes' : 'Create Account'}</Button>
                         </DialogFooter>

@@ -10,10 +10,12 @@ namespace AccountingInventory.API.Controllers
     public class ProductsController : ControllerBase
     {
         private readonly IProductRepository _repository;
+        private readonly IActivityLogService _activityLogService;
 
-        public ProductsController(IProductRepository repository)
+        public ProductsController(IProductRepository repository, IActivityLogService activityLogService)
         {
             _repository = repository;
+            _activityLogService = activityLogService;
         }
 
         /// <summary>
@@ -94,6 +96,9 @@ namespace AccountingInventory.API.Controllers
             };
 
             await _repository.AddAsync(product);
+
+            await _activityLogService.LogActivityAsync("Create", "Product", product.Id.ToString(), $"Created product {product.Name} (SKU: {product.SKU})", dto);
+
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
 
@@ -118,6 +123,9 @@ namespace AccountingInventory.API.Controllers
             product.StockQuantity = dto.StockQuantity;
 
             await _repository.UpdateAsync(product);
+
+            await _activityLogService.LogActivityAsync("Update", "Product", product.Id.ToString(), $"Updated product {product.Name} (SKU: {product.SKU})", dto);
+
             return NoContent();
         }
 
@@ -133,6 +141,9 @@ namespace AccountingInventory.API.Controllers
             try
             {
                 await _repository.DeleteAsync(product);
+
+                await _activityLogService.LogActivityAsync("Delete", "Product", product.Id.ToString(), $"Deleted product {product.Name} (SKU: {product.SKU})");
+
                 return NoContent();
             }
             catch (Exception)

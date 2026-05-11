@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import api from '@/services/api';
 import { CreditCard, Plus, Loader2, BookOpen } from 'lucide-react';
+import clsx from 'clsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
@@ -13,9 +14,12 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Accounts() {
     const router = useRouter();
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'SuperAdmin' || user?.role === 'Admin';
     const {
         data: accounts,
         loading,
@@ -74,9 +78,11 @@ export default function Accounts() {
                     <Button variant="outline" onClick={() => router.push('/accounts/journal')}>
                         <BookOpen className="mr-2 h-4 w-4" /> View Journal
                     </Button>
-                    <Button onClick={handleAdd}>
-                        <Plus className="mr-2 h-4 w-4" /> New Account
-                    </Button>
+                    {isAdmin && (
+                        <Button onClick={handleAdd}>
+                            <Plus className="mr-2 h-4 w-4" /> New Account
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -118,7 +124,14 @@ export default function Accounts() {
                             ) : accounts.length === 0 ? (
                                 <tr><td colSpan={4} className="py-12 text-center text-slate-500">No accounts found.</td></tr>
                             ) : accounts.map((acc: any) => (
-                                <tr key={acc.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => handleEdit(acc)}>
+                                <tr 
+                                    key={acc.id} 
+                                    className={clsx(
+                                        "hover:bg-slate-50/50 transition-colors",
+                                        isAdmin && "cursor-pointer"
+                                    )} 
+                                    onClick={() => isAdmin && handleEdit(acc)}
+                                >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="p-2 bg-slate-100 rounded-lg">
@@ -137,17 +150,19 @@ export default function Accounts() {
                                     </td>
                                     <td className="px-6 py-4 text-right pr-10">
                                         <div className="flex justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="text-[10px] font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-7 px-2"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleAdjust(acc);
-                                                }}
-                                            >
-                                                Adjust
-                                            </Button>
+                                            {isAdmin && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-[10px] font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-7 px-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleAdjust(acc);
+                                                    }}
+                                                >
+                                                    Adjust
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="sm"

@@ -3,11 +3,13 @@ using AccountingInventory.Infrastructure.Data;
 using AccountingInventory.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace AccountingInventory.API.Controllers
 {
+    [Authorize(Roles = "SuperAdmin")]
     [Route("api/[controller]")]
     [ApiController]
     public class ReportsController : ControllerBase
@@ -68,7 +70,10 @@ namespace AccountingInventory.API.Controllers
                 query = query.Where(s => s.Date >= reportParams.StartDate.Value);
 
             if (reportParams.EndDate.HasValue)
-                query = query.Where(s => s.Date <= reportParams.EndDate.Value);
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(s => s.Date <= end);
+            }
 
             if (!string.IsNullOrEmpty(reportParams.Search))
                 query = query.Where(s => s.InvoiceNo.Contains(reportParams.Search));
@@ -120,7 +125,10 @@ namespace AccountingInventory.API.Controllers
             if (reportParams.StartDate.HasValue)
                 query = query.Where(sd => sd.Sale.Date >= reportParams.StartDate.Value);
             if (reportParams.EndDate.HasValue)
-                query = query.Where(sd => sd.Sale.Date <= reportParams.EndDate.Value);
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(sd => sd.Sale.Date <= end);
+            }
             if (!string.IsNullOrEmpty(reportParams.Search))
                 query = query.Where(sd => sd.Product.Name.Contains(reportParams.Search));
             if (reportParams.ProductId.HasValue)
@@ -165,7 +173,10 @@ namespace AccountingInventory.API.Controllers
             if (reportParams.StartDate.HasValue)
                 salesQuery = salesQuery.Where(s => s.Date >= reportParams.StartDate.Value);
             if (reportParams.EndDate.HasValue)
-                salesQuery = salesQuery.Where(s => s.Date <= reportParams.EndDate.Value);
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                salesQuery = salesQuery.Where(s => s.Date <= end);
+            }
             if (!string.IsNullOrEmpty(reportParams.Search))
                 salesQuery = salesQuery.Where(s => s.Customer.Name.Contains(reportParams.Search));
             if (reportParams.CustomerId.HasValue)
@@ -212,7 +223,10 @@ namespace AccountingInventory.API.Controllers
                 query = query.Where(p => p.Date >= reportParams.StartDate.Value);
 
             if (reportParams.EndDate.HasValue)
-                query = query.Where(p => p.Date <= reportParams.EndDate.Value);
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(p => p.Date <= end);
+            }
 
             if (!string.IsNullOrEmpty(reportParams.Search))
                 query = query.Where(p => p.PurchaseNo.Contains(reportParams.Search));
@@ -264,7 +278,10 @@ namespace AccountingInventory.API.Controllers
             if (reportParams.StartDate.HasValue)
                 query = query.Where(pd => pd.Purchase.Date >= reportParams.StartDate.Value);
             if (reportParams.EndDate.HasValue)
-                query = query.Where(pd => pd.Purchase.Date <= reportParams.EndDate.Value);
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(pd => pd.Purchase.Date <= end);
+            }
             if (!string.IsNullOrEmpty(reportParams.Search))
                 query = query.Where(pd => pd.Product.Name.Contains(reportParams.Search));
             if (reportParams.ProductId.HasValue)
@@ -309,7 +326,10 @@ namespace AccountingInventory.API.Controllers
             if (reportParams.StartDate.HasValue)
                 purchasesQuery = purchasesQuery.Where(p => p.Date >= reportParams.StartDate.Value);
             if (reportParams.EndDate.HasValue)
-                purchasesQuery = purchasesQuery.Where(p => p.Date <= reportParams.EndDate.Value);
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                purchasesQuery = purchasesQuery.Where(p => p.Date <= end);
+            }
             if (!string.IsNullOrEmpty(reportParams.Search))
                 purchasesQuery = purchasesQuery.Where(p => p.Supplier.Name.Contains(reportParams.Search));
             if (reportParams.SupplierId.HasValue)
@@ -357,7 +377,10 @@ namespace AccountingInventory.API.Controllers
                 salesQuery = salesQuery.Where(sd => sd.Sale.Date >= reportParams.StartDate.Value);
 
             if (reportParams.EndDate.HasValue)
-                salesQuery = salesQuery.Where(sd => sd.Sale.Date <= reportParams.EndDate.Value);
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                salesQuery = salesQuery.Where(sd => sd.Sale.Date <= end);
+            }
 
             if (!string.IsNullOrEmpty(reportParams.Search))
                 salesQuery = salesQuery.Where(sd => sd.Product.Name.Contains(reportParams.Search));
@@ -450,6 +473,38 @@ namespace AccountingInventory.API.Controllers
                 ProductCount = productCount,
                 LowStockCount = lowStockCount
             });
+        }
+        [HttpGet("activity-logs")]
+        public async Task<ActionResult<Pagination<ActivityLog>>> GetActivityLogs([FromQuery] ReportParams reportParams)
+        {
+            var query = _context.ActivityLogs
+                .Include(a => a.User)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(reportParams.UserId))
+            {
+                query = query.Where(a => a.UserId == reportParams.UserId);
+            }
+
+            if (reportParams.StartDate.HasValue)
+            {
+                query = query.Where(a => a.CreatedAt >= reportParams.StartDate.Value);
+            }
+
+            if (reportParams.EndDate.HasValue)
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(a => a.CreatedAt <= end);
+            }
+
+            var count = await query.CountAsync();
+
+            var logs = await query
+                .OrderByDescending(a => a.CreatedAt)
+                .ApplyPagination(reportParams)
+                .ToListAsync();
+
+            return Ok(new Pagination<ActivityLog>(reportParams.PageIndex, reportParams.PageSize, count, logs));
         }
     }
 }

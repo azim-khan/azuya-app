@@ -14,11 +14,13 @@ namespace AccountingInventory.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IAccountingService _accountingService;
+        private readonly IActivityLogService _activityLogService;
 
-        public SalesController(ApplicationDbContext context, IAccountingService accountingService)
+        public SalesController(ApplicationDbContext context, IAccountingService accountingService, IActivityLogService activityLogService)
         {
             _context = context;
             _accountingService = accountingService;
+            _activityLogService = activityLogService;
         }
 
         [HttpGet]
@@ -177,6 +179,8 @@ namespace AccountingInventory.API.Controllers
                 await _accountingService.CreateSaleJournalEntryAsync(sale, dto.PaymentAccountId);
                 await _context.SaveChangesAsync();
 
+                await _activityLogService.LogActivityAsync("Create", "Sale", sale.Id.ToString(), $"Created sale {sale.InvoiceNo}", dto);
+
                 await transaction.CommitAsync();
 
                 return Ok(new { id = sale.Id });
@@ -259,6 +263,8 @@ namespace AccountingInventory.API.Controllers
                 await _accountingService.UpdateSaleJournalEntryAsync(sale, dto.PaymentAccountId);
                 await _context.SaveChangesAsync();
 
+                await _activityLogService.LogActivityAsync("Update", "Sale", sale.Id.ToString(), $"Updated sale {sale.InvoiceNo}", dto);
+
                 await transaction.CommitAsync();
 
                 return Ok(new { id = sale.Id });
@@ -297,6 +303,9 @@ namespace AccountingInventory.API.Controllers
 
                 _context.Sales.Remove(sale);
                 await _context.SaveChangesAsync();
+
+                await _activityLogService.LogActivityAsync("Delete", "Sale", sale.Id.ToString(), $"Deleted sale {sale.InvoiceNo}");
+
                 await transaction.CommitAsync();
 
                 return NoContent();

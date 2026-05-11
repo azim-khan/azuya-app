@@ -14,11 +14,13 @@ namespace AccountingInventory.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IAccountingService _accountingService;
+        private readonly IActivityLogService _activityLogService;
 
-        public PurchasesController(ApplicationDbContext context, IAccountingService accountingService)
+        public PurchasesController(ApplicationDbContext context, IAccountingService accountingService, IActivityLogService activityLogService)
         {
             _context = context;
             _accountingService = accountingService;
+            _activityLogService = activityLogService;
         }
 
         /// <summary>
@@ -163,6 +165,8 @@ namespace AccountingInventory.API.Controllers
                 await _accountingService.CreatePurchaseJournalEntryAsync(purchase, dto.PaymentAccountId);
                 await _context.SaveChangesAsync();
 
+                await _activityLogService.LogActivityAsync("Create", "Purchase", purchase.Id.ToString(), $"Created purchase {purchase.PurchaseNo}", dto);
+
                 await transaction.CommitAsync();
 
                 return Ok(new { id = purchase.Id });
@@ -237,6 +241,8 @@ namespace AccountingInventory.API.Controllers
                 await _accountingService.UpdatePurchaseJournalEntryAsync(purchase, dto.PaymentAccountId);
                 await _context.SaveChangesAsync();
 
+                await _activityLogService.LogActivityAsync("Update", "Purchase", purchase.Id.ToString(), $"Updated purchase {purchase.PurchaseNo}", dto);
+
                 await transaction.CommitAsync();
 
                 return Ok(new { id = purchase.Id });
@@ -275,6 +281,9 @@ namespace AccountingInventory.API.Controllers
 
                 _context.Purchases.Remove(purchase);
                 await _context.SaveChangesAsync();
+
+                await _activityLogService.LogActivityAsync("Delete", "Purchase", purchase.Id.ToString(), $"Deleted purchase {purchase.PurchaseNo}");
+
                 await transaction.CommitAsync();
 
                 return Ok();

@@ -11,5 +11,6 @@ namespace AccountingInventory.Core.DTOs
         public int? CustomerId { get; set; }
         public int? SupplierId { get; set; }
         public int? AccountId { get; set; }
+        public string? UserId { get; set; }
     }
 }

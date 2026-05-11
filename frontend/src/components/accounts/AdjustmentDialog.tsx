@@ -75,7 +75,7 @@ export function AdjustmentDialog({ open, onOpenChange, account, onSave }: Adjust
             fetchAccounts();
             form.reset({
                 amount: 0,
-                description: `Manual adjustment for ${account?.name}`,
+                description: '',
                 counterpartAccountId: '',
             });
         }
@@ -137,7 +137,7 @@ export function AdjustmentDialog({ open, onOpenChange, account, onSave }: Adjust
                                 <FormItem>
                                     <FormLabel>Description</FormLabel>
                                     <FormControl>
-                                        <Input {...field} />
+                                        <Input {...field} placeholder="Reason for adjustment" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

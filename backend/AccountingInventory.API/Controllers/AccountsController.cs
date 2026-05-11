@@ -5,6 +5,7 @@ using AccountingInventory.Core.DTOs;
 using AccountingInventory.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace AccountingInventory.API.Controllers
 {
@@ -14,11 +15,13 @@ namespace AccountingInventory.API.Controllers
     {
         private readonly IGenericRepository<Account> _repository;
         private readonly ApplicationDbContext _context;
+        private readonly IActivityLogService _activityLogService;
 
-        public AccountsController(IGenericRepository<Account> repository, ApplicationDbContext context)
+        public AccountsController(IGenericRepository<Account> repository, ApplicationDbContext context, IActivityLogService activityLogService)
         {
             _repository = repository;
             _context = context;
+            _activityLogService = activityLogService;
         }
         [HttpGet]
         public async Task<ActionResult<Pagination<Account>>> GetAccounts([FromQuery] ReportParams reportParams)
@@ -40,6 +43,7 @@ namespace AccountingInventory.API.Controllers
             return Ok(new Pagination<Account>(reportParams.PageIndex, reportParams.PageSize, count, accounts));
         }
 
+        [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpPost]
         public async Task<ActionResult<Account>> CreateAccount(CreateAccountDto dto)
         {
@@ -108,6 +112,9 @@ namespace AccountingInventory.API.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+
+                await _activityLogService.LogActivityAsync("Create", "Account", account.Id.ToString(), $"Created account {account.Name}", dto);
+
                 await transaction.CommitAsync();
 
                 return CreatedAtAction(nameof(GetAccounts), new { id = account.Id }, account);
@@ -119,6 +126,7 @@ namespace AccountingInventory.API.Controllers
             }
         }
 
+        [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateAccount(int id, Account account)
         {
@@ -136,9 +144,13 @@ namespace AccountingInventory.API.Controllers
             existing.Type = account.Type;
 
             await _context.SaveChangesAsync();
+
+            await _activityLogService.LogActivityAsync("Update", "Account", existing.Id.ToString(), $"Updated account {existing.Name}", account);
+
             return NoContent();
         }
 
+        [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAccount(int id)
         {
@@ -149,6 +161,9 @@ namespace AccountingInventory.API.Controllers
 
             _context.Accounts.Remove(account);
             await _context.SaveChangesAsync();
+
+            await _activityLogService.LogActivityAsync("Delete", "Account", account.Id.ToString(), $"Deleted account {account.Name}");
+
             return NoContent();
         }
 
@@ -167,7 +182,48 @@ namespace AccountingInventory.API.Controllers
 
             if (reportParams.EndDate.HasValue)
             {
-                query = query.Where(l => l.JournalEntry!.Date <= reportParams.EndDate.Value);
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(l => l.JournalEntry!.Date <= end);
+            }
+
+            var count = await query.CountAsync();
+
+            var entries = await query
+                .OrderByDescending(l => l.JournalEntry!.Date)
+                .ApplyPagination(reportParams)
+                .ToListAsync();
+
+            return Ok(new Pagination<LedgerEntry>(reportParams.PageIndex, reportParams.PageSize, count, entries));
+        }
+
+        [HttpGet("report/transactions")]
+        public async Task<ActionResult<Pagination<LedgerEntry>>> GetAccountTransactionsReport([FromQuery] ReportParams reportParams)
+        {
+            var query = _context.LedgerEntries
+                .Include(l => l.Account)
+                .Include(l => l.JournalEntry)
+                .AsQueryable();
+
+            if (reportParams.AccountId.HasValue)
+            {
+                query = query.Where(l => l.AccountId == reportParams.AccountId.Value);
+            }
+
+            if (reportParams.StartDate.HasValue)
+            {
+                query = query.Where(l => l.JournalEntry!.Date >= reportParams.StartDate.Value);
+            }
+
+            if (reportParams.EndDate.HasValue)
+            {
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(l => l.JournalEntry!.Date <= end);
+            }
+
+            if (!string.IsNullOrEmpty(reportParams.Search))
+            {
+                query = query.Where(l => l.JournalEntry!.Description.Contains(reportParams.Search) || 
+                                         l.JournalEntry!.ReferenceNo.Contains(reportParams.Search));
             }
 
             var count = await query.CountAsync();
@@ -200,7 +256,8 @@ namespace AccountingInventory.API.Controllers
 
             if (reportParams.EndDate.HasValue)
             {
-                query = query.Where(j => j.Date <= reportParams.EndDate.Value);
+                var end = reportParams.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(j => j.Date <= end);
             }
             
             if (reportParams.AccountId.HasValue)
@@ -218,6 +275,7 @@ namespace AccountingInventory.API.Controllers
             return Ok(new Pagination<JournalEntry>(reportParams.PageIndex, reportParams.PageSize, count, entries));
         }
 
+        [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpPost("journal")]
         public async Task<IActionResult> CreateManualJournalEntry(ManualJournalEntryDto dto)
         {
@@ -257,6 +315,9 @@ namespace AccountingInventory.API.Controllers
 
                 _context.JournalEntries.Add(journalEntry);
                 await _context.SaveChangesAsync();
+
+                await _activityLogService.LogActivityAsync("Create", "ManualJournal", journalEntry.Id.ToString(), $"Created manual journal entry: {journalEntry.Description}", dto);
+
                 await transaction.CommitAsync();
 
                 return Ok(journalEntry);
@@ -268,6 +329,7 @@ namespace AccountingInventory.API.Controllers
             }
         }
 
+        [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpPost("{id}/adjust")]
         public async Task<IActionResult> AdjustAccount(int id, [FromBody] AccountAdjustmentDto dto)
         {
@@ -326,6 +388,9 @@ namespace AccountingInventory.API.Controllers
 
                 _context.JournalEntries.Add(journalEntry);
                 await _context.SaveChangesAsync();
+
+                await _activityLogService.LogActivityAsync("Adjustment", "Account", account.Id.ToString(), $"Adjusted account {account.Name}: {dto.Description}", dto);
+
                 await transaction.CommitAsync();
 
                 return Ok();

@@ -23,7 +23,7 @@ const navItems = [
     { name: 'Purchases', href: '/purchases', icon: Truck },
     { name: 'Parties', href: '/parties', icon: Users },
     { name: 'Accounts', href: '/accounts', icon: CreditCard },
-    { name: 'Reports', href: '/reports', icon: FileBarChart },
+    { name: 'Reports', href: '/reports', icon: FileBarChart, superAdminOnly: true },
     { name: 'User Management', href: '/users', icon: ShieldCheck, superAdminOnly: true },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];

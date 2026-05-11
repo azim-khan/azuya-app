@@ -12,7 +12,8 @@ import {
     CircleDollarSign,
     X,
     Filter,
-    BarChart3
+    BarChart3,
+    History
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +23,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import { ColumnDef, SortingState } from '@tanstack/react-table';
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 import {
     Select,
     SelectContent,
@@ -31,8 +33,19 @@ import {
 } from "@/components/ui/select"
 
 import { useDataTable } from '@/hooks/use-data-table';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function ReportsPage() {
+    const router = useRouter();
+    const { user, isSuperAdmin } = useAuth();
+    
+    useEffect(() => {
+        if (user && !isSuperAdmin()) {
+            router.push('/');
+        }
+    }, [user, isSuperAdmin, router]);
+
     const [activeTab, setActiveTab] = useState('stock');
     const [salesTab, setSalesTab] = useState('summary');
     const [purchasesTab, setPurchasesTab] = useState('summary');
@@ -42,6 +55,7 @@ export default function ReportsPage() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [paymentStatus, setPaymentStatus] = useState('All');
+    const [accountId, setAccountId] = useState('All');
 
     // Product Search Dropdown States
     const [productId, setProductId] = useState('All');
@@ -49,6 +63,7 @@ export default function ReportsPage() {
     const [isProductListOpen, setIsProductListOpen] = useState(false);
     const [selectedProductName, setSelectedProductName] = useState('All Products');
     const [products, setProducts] = useState<any[]>([]);
+    const [accounts, setAccounts] = useState<any[]>([]);
     const productDropdownRef = useRef<HTMLDivElement>(null);
 
     // Customer Search
@@ -58,6 +73,10 @@ export default function ReportsPage() {
     // Supplier Search
     const [supplierId, setSupplierId] = useState('All');
     const [suppliers, setSuppliers] = useState<any[]>([]);
+
+    // Activity Log Search
+    const [selectedUserId, setSelectedUserId] = useState('All');
+    const [systemUsers, setSystemUsers] = useState<any[]>([]);
 
     // Determine current endpoint based on tabs
     const endpoint = useMemo(() => {
@@ -76,6 +95,8 @@ export default function ReportsPage() {
             if (profitTab === 'product') return '/reports/profit/by-product';
             if (profitTab === 'margin') return '/reports/profit/margins';
         }
+        if (activeTab === 'accounting') return '/accounts/report/transactions';
+        if (activeTab === 'activity') return '/reports/activity-logs';
         return '';
     }, [activeTab, salesTab, purchasesTab, profitTab]);
 
@@ -99,7 +120,8 @@ export default function ReportsPage() {
             productId: 'All',
             customerId: 'All',
             supplierId: 'All',
-            paymentStatus: 'All'
+            paymentStatus: 'All',
+            accountId: ''
         }
     });
 
@@ -111,20 +133,26 @@ export default function ReportsPage() {
             productId,
             customerId,
             supplierId,
-            paymentStatus
+            paymentStatus,
+            accountId: accountId === 'All' ? '' : accountId,
+            userId: selectedUserId === 'All' ? '' : selectedUserId
         });
-    }, [startDate, endDate, productId, customerId, supplierId, paymentStatus, setFilters]);
+    }, [startDate, endDate, productId, customerId, supplierId, paymentStatus, accountId, selectedUserId, setFilters]);
 
     const fetchDropdownData = useCallback(async () => {
         try {
-            const [prodRes, custRes, supRes] = await Promise.all([
+            const [prodRes, custRes, supRes, accRes, userRes] = await Promise.all([
                 api.get('/products?pageSize=1000'),
                 api.get('/customers?pageSize=1000'),
-                api.get('/suppliers?pageSize=1000')
+                api.get('/suppliers?pageSize=1000'),
+                api.get('/accounts?pageSize=1000'),
+                api.get('/users')
             ]);
             setProducts(prodRes.data.data || []);
             setCustomers(Array.isArray(custRes.data) ? custRes.data : (custRes.data.data || []));
             setSuppliers(Array.isArray(supRes.data) ? supRes.data : (supRes.data.data || []));
+            setAccounts(accRes.data.data || accRes.data || []);
+            setSystemUsers(userRes.data || []);
         } catch (error) {
             console.error('Failed to fetch dropdown data:', error);
         }
@@ -231,6 +259,51 @@ export default function ReportsPage() {
         { accessorKey: 'margin', header: 'Margin %', cell: ({ row }) => <span className="font-bold text-green-600">{(row.original.margin || 0).toFixed(2)}%</span> },
     ];
 
+    const accountingColumns: ColumnDef<any>[] = [
+        { accessorKey: 'journalEntry.date', header: 'Date', cell: ({ row }) => row.original.journalEntry ? format(new Date(row.original.journalEntry.date), 'dd/MM/yyyy') : 'N/A' },
+        { accessorKey: 'account.name', header: 'Account', cell: ({ row }) => (
+            <div>
+                <div className="font-bold text-slate-900">{row.original.account?.name}</div>
+                <div className="text-[10px] text-slate-400 uppercase font-black">{row.original.account?.type}</div>
+            </div>
+        )},
+        { accessorKey: 'journalEntry.description', header: 'Description', cell: ({ row }) => <span className="font-medium text-slate-700">{row.original.journalEntry?.description}</span> },
+        { accessorKey: 'journalEntry.referenceNo', header: 'Ref No', cell: ({ row }) => <Badge variant="outline" className="font-mono text-[10px]">{row.original.journalEntry?.referenceNo}</Badge> },
+        { accessorKey: 'debit', header: 'Debit', cell: ({ row }) => <span className="font-bold text-emerald-600">{row.original.debit > 0 ? `৳${row.original.debit.toLocaleString()}` : '-'}</span> },
+        { accessorKey: 'credit', header: 'Credit', cell: ({ row }) => <span className="font-bold text-rose-600">{row.original.credit > 0 ? `৳${row.original.credit.toLocaleString()}` : '-'}</span> },
+        { accessorKey: 'journalEntry.sourceType', header: 'Source', cell: ({ row }) => <Badge variant="secondary" className="text-[10px] uppercase font-black">{row.original.journalEntry?.sourceType}</Badge> },
+    ];
+
+    const activityLogColumns: ColumnDef<any>[] = [
+        { accessorKey: 'createdAt', header: 'Timestamp', cell: ({ row }) => format(new Date(row.original.createdAt), 'dd/MM/yyyy HH:mm:ss') },
+        { accessorKey: 'user.fullName', header: 'User', cell: ({ row }) => <span className="font-medium">{row.original.user?.fullName}</span> },
+        { accessorKey: 'action', header: 'Action', cell: ({ row }) => (
+            <Badge className={clsx(
+                "uppercase text-[10px] font-black",
+                row.original.action === 'Create' && "bg-emerald-100 text-emerald-700",
+                row.original.action === 'Update' && "bg-blue-100 text-blue-700",
+                row.original.action === 'Delete' && "bg-rose-100 text-rose-700",
+                row.original.action === 'Adjustment' && "bg-amber-100 text-amber-700"
+            )}>
+                {row.original.action}
+            </Badge>
+        )},
+        { accessorKey: 'entityName', header: 'Module', cell: ({ row }) => <span className="font-bold text-slate-700">{row.original.entityName}</span> },
+        { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="text-slate-600">{row.original.description}</span> },
+        { accessorKey: 'rawData', header: 'Data', cell: ({ row }) => (
+            <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 text-[10px] text-blue-600 font-bold"
+                onClick={() => {
+                    alert(JSON.stringify(JSON.parse(row.original.rawData || '{}'), null, 2));
+                }}
+            >
+                View JSON
+            </Button>
+        )},
+    ];
+
     // Determine current columns based on active tab and sub tab
     let currentColumns: ColumnDef<any>[] = [];
     if (activeTab === 'stock') currentColumns = stockColumns;
@@ -248,6 +321,8 @@ export default function ReportsPage() {
         if (profitTab === 'product') currentColumns = profitPerProductColumns;
         if (profitTab === 'margin') currentColumns = profitMarginsColumns;
     }
+    if (activeTab === 'accounting') currentColumns = accountingColumns;
+    if (activeTab === 'activity') currentColumns = activityLogColumns;
 
     return (
         <div className="space-y-4 flex flex-col h-full">
@@ -268,6 +343,8 @@ export default function ReportsPage() {
                         <TabsTrigger value="sales" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 text-xs uppercase tracking-widest font-bold">Sales</TabsTrigger>
                         <TabsTrigger value="purchases" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 text-xs uppercase tracking-widest font-bold">Purchases</TabsTrigger>
                         <TabsTrigger value="profitability" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 text-xs uppercase tracking-widest font-bold">Profitability</TabsTrigger>
+                        <TabsTrigger value="accounting" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 text-xs uppercase tracking-widest font-bold">Accounting</TabsTrigger>
+                        <TabsTrigger value="activity" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 text-xs uppercase tracking-widest font-bold">Activity Log</TabsTrigger>
                     </TabsList>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -369,6 +446,34 @@ export default function ReportsPage() {
                             </Select>
                         )}
 
+                        {activeTab === 'activity' && (
+                            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                                <SelectTrigger className="w-48 h-9 border-slate-200">
+                                    <SelectValue placeholder="All Users" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="All">All Users</SelectItem>
+                                    {systemUsers?.map(u => (
+                                        <SelectItem key={u.id} value={u.id}>{u.fullName}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+
+                        {activeTab === 'accounting' && (
+                            <Select value={accountId} onValueChange={setAccountId}>
+                                <SelectTrigger className="w-48 h-9 border-slate-200">
+                                    <SelectValue placeholder="All Accounts" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="All">All Accounts</SelectItem>
+                                    {accounts?.map(a => (
+                                        <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+
                         {((activeTab === 'sales' && salesTab === 'summary') || (activeTab === 'purchases' && purchasesTab === 'summary')) && (
                             <Select value={paymentStatus} onValueChange={setPaymentStatus}>
                                 <SelectTrigger className="w-32 h-9 border-slate-200">
@@ -413,6 +518,8 @@ export default function ReportsPage() {
                                 setPaymentStatus('All');
                                 setStartDate('');
                                 setEndDate('');
+                                setAccountId('All');
+                                setSelectedUserId('All');
                             }}
                         >
                             Reset

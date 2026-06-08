@@ -1,4 +1,5 @@
 using AccountingInventory.Core.DTOs;
+using AccountingInventory.Core.Entities;
 using AccountingInventory.Infrastructure.Data;
 using AccountingInventory.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;

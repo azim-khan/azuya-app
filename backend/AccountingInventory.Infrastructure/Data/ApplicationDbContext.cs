@@ -35,6 +35,14 @@ namespace AccountingInventory.Infrastructure.Data
             {
                 property.SetColumnType("decimal(18,2)");
             }
+
+            modelBuilder.Entity<ActivityLog>()
+                .Property(a => a.Action)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<ActivityLog>()
+                .Property(a => a.EntityName)
+                .HasConversion<string>();
         }
     }
 }

@@ -18,7 +18,7 @@ namespace AccountingInventory.Infrastructure.Services
             _context = context;
         }
 
-        public async Task<JournalEntry> CreateSaleJournalEntryAsync(Sale sale, int paymentAccountId)
+        public async Task<JournalEntry> CreateSaleJournalEntryAsync(Sale sale, long paymentAccountId)
         {
             var journal = new JournalEntry
             {
@@ -75,7 +75,7 @@ namespace AccountingInventory.Infrastructure.Services
             return journal;
         }
 
-        public async Task<JournalEntry> CreatePurchaseJournalEntryAsync(Purchase purchase, int paymentAccountId)
+        public async Task<JournalEntry> CreatePurchaseJournalEntryAsync(Purchase purchase, long paymentAccountId)
         {
             var journal = new JournalEntry
             {
@@ -165,13 +165,13 @@ namespace AccountingInventory.Infrastructure.Services
             }
         }
 
-        public async Task UpdateSaleJournalEntryAsync(Sale sale, int paymentAccountId)
+        public async Task UpdateSaleJournalEntryAsync(Sale sale, long paymentAccountId)
         {
             await DeleteJournalEntryByReferenceAsync(sale.InvoiceNo);
             await CreateSaleJournalEntryAsync(sale, paymentAccountId);
         }
 
-        public async Task UpdatePurchaseJournalEntryAsync(Purchase purchase, int paymentAccountId)
+        public async Task UpdatePurchaseJournalEntryAsync(Purchase purchase, long paymentAccountId)
         {
             await DeleteJournalEntryByReferenceAsync(purchase.PurchaseNo);
             await CreatePurchaseJournalEntryAsync(purchase, paymentAccountId);
@@ -185,7 +185,7 @@ namespace AccountingInventory.Infrastructure.Services
             await AddLedgerEntry(journal, account.Id, debit, credit);
         }
 
-        private async Task AddLedgerEntry(JournalEntry journal, int accountId, decimal debit, decimal credit)
+        private async Task AddLedgerEntry(JournalEntry journal, long accountId, decimal debit, decimal credit)
         {
             var account = await _context.Accounts.FindAsync(accountId);
             if (account == null) return;

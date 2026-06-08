@@ -13,7 +13,7 @@ namespace AccountingInventory.Core.DTOs
 
     public class JournalItemDto
     {
-        public int AccountId { get; set; }
+        public long AccountId { get; set; }
         public decimal Debit { get; set; }
         public decimal Credit { get; set; }
     }

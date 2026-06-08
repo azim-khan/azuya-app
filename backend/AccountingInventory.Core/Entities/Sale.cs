@@ -13,7 +13,7 @@ namespace AccountingInventory.Core.Entities
 
         public DateTime Date { get; set; } = DateTime.UtcNow;
 
-        public int? CustomerId { get; set; }
+        public long? CustomerId { get; set; }
         public Customer? Customer { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
@@ -39,10 +39,10 @@ namespace AccountingInventory.Core.Entities
 
     public class SaleDetail : BaseEntity
     {
-        public int SaleId { get; set; }
+        public long SaleId { get; set; }
         public Sale? Sale { get; set; }
 
-        public int ProductId { get; set; }
+        public long ProductId { get; set; }
         public Product? Product { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]

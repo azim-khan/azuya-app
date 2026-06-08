@@ -33,7 +33,7 @@ namespace AccountingInventory.API.Controllers
         /// Gets a supplier by ID.
         /// </summary>
         [HttpGet("{id}")]
-        public async Task<ActionResult<Supplier>> GetSupplier(int id)
+        public async Task<ActionResult<Supplier>> GetSupplier(long id)
         {
             var supplier = await _repository.GetByIdAsync(id);
             if (supplier == null) return NotFound();
@@ -62,7 +62,7 @@ namespace AccountingInventory.API.Controllers
         /// Updates a supplier.
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSupplier(int id, CreatePartyDto dto)
+        public async Task<IActionResult> UpdateSupplier(long id, CreatePartyDto dto)
         {
             var supplier = await _repository.GetByIdAsync(id);
             if (supplier == null) return NotFound();
@@ -80,7 +80,7 @@ namespace AccountingInventory.API.Controllers
         /// Deletes a supplier.
         /// </summary>
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteSupplier(int id)
+        public async Task<IActionResult> DeleteSupplier(long id)
         {
             var supplier = await _repository.GetByIdAsync(id);
             if (supplier == null) return NotFound();

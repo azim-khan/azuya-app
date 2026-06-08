@@ -29,7 +29,7 @@ namespace AccountingInventory.API.Controllers
         /// Gets a category by ID.
         /// </summary>
         [HttpGet("{id}")]
-        public async Task<ActionResult<Category>> GetCategory(int id)
+        public async Task<ActionResult<Category>> GetCategory(long id)
         {
             var category = await _repository.GetByIdAsync(id);
             if (category == null) return NotFound();
@@ -57,7 +57,7 @@ namespace AccountingInventory.API.Controllers
         /// Updates a category.
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCategory(int id, CreateCategoryDto dto)
+        public async Task<IActionResult> UpdateCategory(long id, CreateCategoryDto dto)
         {
             var category = await _repository.GetByIdAsync(id);
             if (category == null) return NotFound();
@@ -74,7 +74,7 @@ namespace AccountingInventory.API.Controllers
         /// Deletes a category.
         /// </summary>
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCategory(int id)
+        public async Task<IActionResult> DeleteCategory(long id)
         {
             var category = await _repository.GetByIdAsync(id);
             if (category == null) return NotFound();

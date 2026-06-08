@@ -12,13 +12,13 @@ namespace AccountingInventory.Core.Entities
         [MaxLength(100)]
         public string SKU { get; set; } = string.Empty;
 
-        public int CategoryId { get; set; }
+        public long CategoryId { get; set; }
         public Category? Category { get; set; }
 
-        public int UnitId { get; set; }
+        public long UnitId { get; set; }
         public Unit? Unit { get; set; }
 
-        public int? BrandId { get; set; }
+        public long? BrandId { get; set; }
         public Brand? Brand { get; set; }
 
         [MaxLength(100)]

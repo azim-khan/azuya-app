@@ -33,7 +33,7 @@ namespace AccountingInventory.API.Controllers
         /// Gets a customer by ID.
         /// </summary>
         [HttpGet("{id}")]
-        public async Task<ActionResult<Customer>> GetCustomer(int id)
+        public async Task<ActionResult<Customer>> GetCustomer(long id)
         {
             var customer = await _repository.GetByIdAsync(id);
             if (customer == null) return NotFound();
@@ -62,7 +62,7 @@ namespace AccountingInventory.API.Controllers
         /// Updates a customer.
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCustomer(int id, CreatePartyDto dto)
+        public async Task<IActionResult> UpdateCustomer(long id, CreatePartyDto dto)
         {
             var customer = await _repository.GetByIdAsync(id);
             if (customer == null) return NotFound();
@@ -80,7 +80,7 @@ namespace AccountingInventory.API.Controllers
         /// Deletes a customer.
         /// </summary>
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCustomer(int id)
+        public async Task<IActionResult> DeleteCustomer(long id)
         {
             var customer = await _repository.GetByIdAsync(id);
             if (customer == null) return NotFound();

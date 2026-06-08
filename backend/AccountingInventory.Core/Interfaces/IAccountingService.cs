@@ -5,10 +5,10 @@ namespace AccountingInventory.Core.Interfaces
 {
     public interface IAccountingService
     {
-        Task<JournalEntry> CreateSaleJournalEntryAsync(Sale sale, int paymentAccountId);
-        Task<JournalEntry> CreatePurchaseJournalEntryAsync(Purchase purchase, int paymentAccountId);
+        Task<JournalEntry> CreateSaleJournalEntryAsync(Sale sale, long paymentAccountId);
+        Task<JournalEntry> CreatePurchaseJournalEntryAsync(Purchase purchase, long paymentAccountId);
         Task DeleteJournalEntryByReferenceAsync(string referenceNo);
-        Task UpdateSaleJournalEntryAsync(Sale sale, int paymentAccountId);
-        Task UpdatePurchaseJournalEntryAsync(Purchase purchase, int paymentAccountId);
+        Task UpdateSaleJournalEntryAsync(Sale sale, long paymentAccountId);
+        Task UpdatePurchaseJournalEntryAsync(Purchase purchase, long paymentAccountId);
     }
 }

@@ -58,10 +58,10 @@ namespace AccountingInventory.Core.Entities
 
     public class LedgerEntry : BaseEntity
     {
-        public int JournalEntryId { get; set; }
+        public long JournalEntryId { get; set; }
         public JournalEntry? JournalEntry { get; set; }
 
-        public int AccountId { get; set; }
+        public long AccountId { get; set; }
         public Account? Account { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]

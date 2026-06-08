@@ -113,7 +113,7 @@ namespace AccountingInventory.API.Controllers
 
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Create", "Account", account.Id.ToString(), $"Created account {account.Name}", dto);
+                await _activityLogService.LogActivityAsync(ActivityAction.Create, ActivityEntity.Account, account.Id.ToString(), $"Created account {account.Name}", dto);
 
                 await transaction.CommitAsync();
 
@@ -128,7 +128,7 @@ namespace AccountingInventory.API.Controllers
 
         [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateAccount(int id, Account account)
+        public async Task<IActionResult> UpdateAccount(long id, Account account)
         {
             var existing = await _context.Accounts.FindAsync(id);
             if (existing == null) return NotFound();
@@ -145,14 +145,14 @@ namespace AccountingInventory.API.Controllers
 
             await _context.SaveChangesAsync();
 
-            await _activityLogService.LogActivityAsync("Update", "Account", existing.Id.ToString(), $"Updated account {existing.Name}", account);
+            await _activityLogService.LogActivityAsync(ActivityAction.Update, ActivityEntity.Account, existing.Id.ToString(), $"Updated account {existing.Name}", account);
 
             return NoContent();
         }
 
         [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAccount(int id)
+        public async Task<IActionResult> DeleteAccount(long id)
         {
             var account = await _context.Accounts.FindAsync(id);
             if (account == null) return NotFound();
@@ -162,7 +162,7 @@ namespace AccountingInventory.API.Controllers
             _context.Accounts.Remove(account);
             await _context.SaveChangesAsync();
 
-            await _activityLogService.LogActivityAsync("Delete", "Account", account.Id.ToString(), $"Deleted account {account.Name}");
+            await _activityLogService.LogActivityAsync(ActivityAction.Delete, ActivityEntity.Account, account.Id.ToString(), $"Deleted account {account.Name}");
 
             return NoContent();
         }
@@ -316,7 +316,7 @@ namespace AccountingInventory.API.Controllers
                 _context.JournalEntries.Add(journalEntry);
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Create", "ManualJournal", journalEntry.Id.ToString(), $"Created manual journal entry: {journalEntry.Description}", dto);
+                await _activityLogService.LogActivityAsync(ActivityAction.Create, ActivityEntity.ManualJournal, journalEntry.Id.ToString(), $"Created manual journal entry: {journalEntry.Description}", dto);
 
                 await transaction.CommitAsync();
 
@@ -389,7 +389,7 @@ namespace AccountingInventory.API.Controllers
                 _context.JournalEntries.Add(journalEntry);
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Adjustment", "Account", account.Id.ToString(), $"Adjusted account {account.Name}: {dto.Description}", dto);
+                await _activityLogService.LogActivityAsync(ActivityAction.Adjustment, ActivityEntity.Account, account.Id.ToString(), $"Adjusted account {account.Name}: {dto.Description}", dto);
 
                 await transaction.CommitAsync();
 

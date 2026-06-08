@@ -29,7 +29,7 @@ namespace AccountingInventory.API.Controllers
         /// Gets a unit by ID.
         /// </summary>
         [HttpGet("{id}")]
-        public async Task<ActionResult<Unit>> GetUnit(int id)
+        public async Task<ActionResult<Unit>> GetUnit(long id)
         {
             var unit = await _repository.GetByIdAsync(id);
             if (unit == null) return NotFound();
@@ -55,7 +55,7 @@ namespace AccountingInventory.API.Controllers
         /// Updates a unit.
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUnit(int id, CreateUnitDto dto)
+        public async Task<IActionResult> UpdateUnit(long id, CreateUnitDto dto)
         {
             var unit = await _repository.GetByIdAsync(id);
             if (unit == null) return NotFound();
@@ -70,7 +70,7 @@ namespace AccountingInventory.API.Controllers
         /// Deletes a unit.
         /// </summary>
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUnit(int id)
+        public async Task<IActionResult> DeleteUnit(long id)
         {
             var unit = await _repository.GetByIdAsync(id);
             if (unit == null) return NotFound();

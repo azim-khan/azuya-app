@@ -27,7 +27,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Brand>> GetBrand(int id)
+        public async Task<ActionResult<Brand>> GetBrand(long id)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
             if (brand == null) return NotFound();
@@ -48,7 +48,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateBrand(int id, CreateBrandDto dto)
+        public async Task<ActionResult> UpdateBrand(long id, CreateBrandDto dto)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
             if (brand == null) return NotFound();
@@ -61,7 +61,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteBrand(int id)
+        public async Task<IActionResult> DeleteBrand(long id)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
             if (brand == null) return NotFound();

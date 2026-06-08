@@ -51,7 +51,7 @@ namespace AccountingInventory.API.Controllers
         /// Gets a product by ID.
         /// </summary>
         [HttpGet("{id}")]
-        public async Task<ActionResult<ProductDto>> GetProduct(int id)
+        public async Task<ActionResult<ProductDto>> GetProduct(long id)
         {
             var product = await _repository.GetProductWithDetailsAsync(id);
             if (product == null) return NotFound();
@@ -97,7 +97,7 @@ namespace AccountingInventory.API.Controllers
 
             await _repository.AddAsync(product);
 
-            await _activityLogService.LogActivityAsync("Create", "Product", product.Id.ToString(), $"Created product {product.Name} (SKU: {product.SKU})", dto);
+            await _activityLogService.LogActivityAsync(ActivityAction.Create, ActivityEntity.Product, product.Id.ToString(), $"Created product {product.Name} (SKU: {product.SKU})", dto);
 
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
@@ -106,7 +106,7 @@ namespace AccountingInventory.API.Controllers
         /// Updates a product.
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct(int id, CreateProductDto dto)
+        public async Task<IActionResult> UpdateProduct(long id, CreateProductDto dto)
         {
             var product = await _repository.GetByIdAsync(id);
             if (product == null) return NotFound();
@@ -124,7 +124,7 @@ namespace AccountingInventory.API.Controllers
 
             await _repository.UpdateAsync(product);
 
-            await _activityLogService.LogActivityAsync("Update", "Product", product.Id.ToString(), $"Updated product {product.Name} (SKU: {product.SKU})", dto);
+            await _activityLogService.LogActivityAsync(ActivityAction.Update, ActivityEntity.Product, product.Id.ToString(), $"Updated product {product.Name} (SKU: {product.SKU})", dto);
 
             return NoContent();
         }
@@ -133,7 +133,7 @@ namespace AccountingInventory.API.Controllers
         /// Deletes a product.
         /// </summary>
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProduct(int id)
+        public async Task<IActionResult> DeleteProduct(long id)
         {
             var product = await _repository.GetByIdAsync(id);
             if (product == null) return NotFound();
@@ -142,7 +142,7 @@ namespace AccountingInventory.API.Controllers
             {
                 await _repository.DeleteAsync(product);
 
-                await _activityLogService.LogActivityAsync("Delete", "Product", product.Id.ToString(), $"Deleted product {product.Name} (SKU: {product.SKU})");
+                await _activityLogService.LogActivityAsync(ActivityAction.Delete, ActivityEntity.Product, product.Id.ToString(), $"Deleted product {product.Name} (SKU: {product.SKU})");
 
                 return NoContent();
             }

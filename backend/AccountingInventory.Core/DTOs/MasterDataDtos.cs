@@ -34,10 +34,10 @@ namespace AccountingInventory.Core.DTOs
         public string Name { get; set; } = string.Empty;
         public string SKU { get; set; } = string.Empty;
         [Required]
-        public int CategoryId { get; set; }
+        public long CategoryId { get; set; }
         [Required]
-        public int UnitId { get; set; }
-        public int? BrandId { get; set; }
+        public long UnitId { get; set; }
+        public long? BrandId { get; set; }
         public string Model { get; set; } = string.Empty;
         public decimal PurchasePrice { get; set; }
         public decimal SalePrice { get; set; }
@@ -46,7 +46,7 @@ namespace AccountingInventory.Core.DTOs
 
     public class ProductDto : CreateProductDto
     {
-        public int Id { get; set; }
+        public long Id { get; set; }
         public string CategoryName { get; set; } = string.Empty;
         public string UnitName { get; set; } = string.Empty;
         public string BrandName { get; set; } = string.Empty;

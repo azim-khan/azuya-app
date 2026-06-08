@@ -19,7 +19,7 @@ namespace AccountingInventory.Infrastructure.Services
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task LogActivityAsync(string action, string entityName, string entityId, string description, object? rawData = null)
+        public async Task LogActivityAsync(ActivityAction action, ActivityEntity entityName, string entityId, string description, object? rawData = null)
         {
             var userId = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
             

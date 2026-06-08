@@ -16,6 +16,6 @@ namespace AccountingInventory.Core.DTOs
 
     public class PartyDto : CreatePartyDto
     {
-        public int Id { get; set; }
+        public long Id { get; set; }
     }
 }

@@ -13,7 +13,7 @@ namespace AccountingInventory.Core.Entities
 
         public DateTime Date { get; set; } = DateTime.UtcNow;
 
-        public int SupplierId { get; set; }
+        public long SupplierId { get; set; }
         public Supplier? Supplier { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
@@ -33,10 +33,10 @@ namespace AccountingInventory.Core.Entities
 
     public class PurchaseDetail : BaseEntity
     {
-        public int PurchaseId { get; set; }
+        public long PurchaseId { get; set; }
         public Purchase? Purchase { get; set; }
 
-        public int ProductId { get; set; }
+        public long ProductId { get; set; }
         public Product? Product { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]

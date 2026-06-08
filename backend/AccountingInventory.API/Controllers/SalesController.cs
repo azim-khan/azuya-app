@@ -78,7 +78,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<SaleDto>> GetSale(int id)
+        public async Task<ActionResult<SaleDto>> GetSale(long id)
         {
             var sale = await _context.Sales
                 .Include(s => s.Customer)
@@ -121,7 +121,7 @@ namespace AccountingInventory.API.Controllers
                 .OrderByDescending(s => s.Id)
                 .FirstOrDefaultAsync();
 
-            int nextId = (lastSale?.Id ?? 0) + 1;
+            long nextId = (lastSale?.Id ?? 0) + 1;
             return Ok(new { invoiceNo = $"SL-{nextId:D4}" });
         }
 
@@ -179,7 +179,7 @@ namespace AccountingInventory.API.Controllers
                 await _accountingService.CreateSaleJournalEntryAsync(sale, dto.PaymentAccountId);
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Create", "Sale", sale.Id.ToString(), $"Created sale {sale.InvoiceNo}", dto);
+                await _activityLogService.LogActivityAsync(ActivityAction.Create, ActivityEntity.Sale, sale.Id.ToString(), $"Created sale {sale.InvoiceNo}", dto);
 
                 await transaction.CommitAsync();
 
@@ -193,7 +193,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSale(int id, CreateSaleDto dto)
+        public async Task<IActionResult> UpdateSale(long id, CreateSaleDto dto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -263,7 +263,7 @@ namespace AccountingInventory.API.Controllers
                 await _accountingService.UpdateSaleJournalEntryAsync(sale, dto.PaymentAccountId);
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Update", "Sale", sale.Id.ToString(), $"Updated sale {sale.InvoiceNo}", dto);
+                await _activityLogService.LogActivityAsync(ActivityAction.Update, ActivityEntity.Sale, sale.Id.ToString(), $"Updated sale {sale.InvoiceNo}", dto);
 
                 await transaction.CommitAsync();
 
@@ -277,7 +277,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteSale(int id)
+        public async Task<IActionResult> DeleteSale(long id)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -304,7 +304,7 @@ namespace AccountingInventory.API.Controllers
                 _context.Sales.Remove(sale);
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Delete", "Sale", sale.Id.ToString(), $"Deleted sale {sale.InvoiceNo}");
+                await _activityLogService.LogActivityAsync(ActivityAction.Delete, ActivityEntity.Sale, sale.Id.ToString(), $"Deleted sale {sale.InvoiceNo}");
 
                 await transaction.CommitAsync();
 

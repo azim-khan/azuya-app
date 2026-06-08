@@ -81,7 +81,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<PurchaseDto>> GetPurchase(int id)
+        public async Task<ActionResult<PurchaseDto>> GetPurchase(long id)
         {
             var p = await _context.Purchases
                 .Include(p => p.Supplier)
@@ -165,7 +165,7 @@ namespace AccountingInventory.API.Controllers
                 await _accountingService.CreatePurchaseJournalEntryAsync(purchase, dto.PaymentAccountId);
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Create", "Purchase", purchase.Id.ToString(), $"Created purchase {purchase.PurchaseNo}", dto);
+                await _activityLogService.LogActivityAsync(ActivityAction.Create, ActivityEntity.Purchase, purchase.Id.ToString(), $"Created purchase {purchase.PurchaseNo}", dto);
 
                 await transaction.CommitAsync();
 
@@ -179,7 +179,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePurchase(int id, CreatePurchaseDto dto)
+        public async Task<IActionResult> UpdatePurchase(long id, CreatePurchaseDto dto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -241,7 +241,7 @@ namespace AccountingInventory.API.Controllers
                 await _accountingService.UpdatePurchaseJournalEntryAsync(purchase, dto.PaymentAccountId);
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Update", "Purchase", purchase.Id.ToString(), $"Updated purchase {purchase.PurchaseNo}", dto);
+                await _activityLogService.LogActivityAsync(ActivityAction.Update, ActivityEntity.Purchase, purchase.Id.ToString(), $"Updated purchase {purchase.PurchaseNo}", dto);
 
                 await transaction.CommitAsync();
 
@@ -255,7 +255,7 @@ namespace AccountingInventory.API.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePurchase(int id)
+        public async Task<IActionResult> DeletePurchase(long id)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -282,7 +282,7 @@ namespace AccountingInventory.API.Controllers
                 _context.Purchases.Remove(purchase);
                 await _context.SaveChangesAsync();
 
-                await _activityLogService.LogActivityAsync("Delete", "Purchase", purchase.Id.ToString(), $"Deleted purchase {purchase.PurchaseNo}");
+                await _activityLogService.LogActivityAsync(ActivityAction.Delete, ActivityEntity.Purchase, purchase.Id.ToString(), $"Deleted purchase {purchase.PurchaseNo}");
 
                 await transaction.CommitAsync();
 
@@ -301,7 +301,7 @@ namespace AccountingInventory.API.Controllers
                 .OrderByDescending(p => p.Id)
                 .FirstOrDefaultAsync();
 
-            int nextId = (lastPurchase?.Id ?? 0) + 1;
+            long nextId = (lastPurchase?.Id ?? 0) + 1;
             return Ok(new { purchaseNo = $"P-{nextId:D4}" });
         }
     }

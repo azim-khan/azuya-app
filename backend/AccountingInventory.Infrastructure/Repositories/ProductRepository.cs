@@ -42,7 +42,7 @@ namespace AccountingInventory.Infrastructure.Repositories
             return new Pagination<Product>(specParams.PageIndex, specParams.PageSize, count, data);
         }
 
-        public async Task<Product?> GetProductWithDetailsAsync(int id)
+        public async Task<Product?> GetProductWithDetailsAsync(long id)
         {
             return await _context.Products
                 .Include(p => p.Category)

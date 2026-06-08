@@ -25,8 +25,8 @@ namespace AccountingInventory.Tests
             // Arrange
             var categories = new List<Category>
             {
-                new Category { Id = 1, Name = "Electronics" },
-                new Category { Id = 2, Name = "Groceries" }
+                new Category { Id = 1L, Name = "Electronics" },
+                new Category { Id = 2L, Name = "Groceries" }
             };
             _mockRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(categories);
 
@@ -43,7 +43,7 @@ namespace AccountingInventory.Tests
         public async Task GetCategory_ReturnsNotFound_WhenCategoryDoesNotExist()
         {
             // Arrange
-            _mockRepo.Setup(repo => repo.GetByIdAsync(1)).ReturnsAsync((Category)null);
+            _mockRepo.Setup(repo => repo.GetByIdAsync(1L)).ReturnsAsync((Category)null);
 
             // Act
             var result = await _controller.GetCategory(1);
@@ -60,7 +60,7 @@ namespace AccountingInventory.Tests
             var category = new Category { Id = 1, Name = "New Category" };
             
             _mockRepo.Setup(repo => repo.AddAsync(It.IsAny<Category>()))
-                .Callback<Category>(c => c.Id = 1) // Simulate ID generation
+                .Callback<Category>(c => c.Id = 1L) // Simulate ID generation
                 .ReturnsAsync(category);
 
             // Act
@@ -69,7 +69,7 @@ namespace AccountingInventory.Tests
             // Assert
             var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result.Result);
             Assert.Equal("GetCategory", createdAtActionResult.ActionName);
-            Assert.Equal(1, createdAtActionResult.RouteValues["id"]);
+            Assert.Equal(1L, createdAtActionResult.RouteValues["id"]);
         }
     }
 }
